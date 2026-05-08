@@ -13,17 +13,20 @@ DB_CONFIG = {
     "database": "defaultdb",
     "ssl_disabled": False
 }
-
 def get_db_connection():
     try:
+        # Sử dụng dictionary 'ssl' để truyền tham số bảo mật thay vì ssl_mode trực tiếp
         return mysql.connector.connect(
             **DB_CONFIG,
-            ssl_mode='REQUIRED' # Bắt buộc phải có dòng này cho Aiven
+            ssl_disabled=False
         )
     except Exception as e:
-        st.error(f"Connection Error: {e}")
-        return None
-
+        # Nếu vẫn lỗi, thử cách kết nối cơ bản nhất (Aiven đôi khi tự nhận diện SSL)
+        try:
+            return mysql.connector.connect(**DB_CONFIG)
+        except Exception as e2:
+            st.error(f"Final Connection Error: {e2}")
+            return None
 # --- 2. SECURITY & AUTHENTICATION  ---
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
