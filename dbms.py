@@ -10,7 +10,7 @@ DB_CONFIG = {
     "port": 25428,
     "user": "avnadmin",
     "password": "AVNS_AIQlh70s2tSBuu4XrKE", 
-    "database": "defaultdb"
+    "database": "defaultdb",
     "ssl_disabled": False
 }
 
