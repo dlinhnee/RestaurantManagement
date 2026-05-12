@@ -71,20 +71,31 @@ if not st.session_state.logged_in:
             new_user = st.text_input("Username")
             new_pass = st.text_input("Password", type="password")
             new_role = st.selectbox("Role", ["admin", "cashier", "waiter"])
+            # Tìm đến khoảng dòng 71
             if st.form_submit_button("Create Account"):
-                hashed = hash_password(new_pass)
-                conn = get_db_connection()
-                if conn:
-                    cursor = conn.cursor()
-                    try:
-                        cursor.execute("INSERT INTO employees (full_name, username, password, position, hire_date) VALUES (%s,%s,%s,%s,%s)",
-                                       (new_name, new_user, hashed, new_role, datetime.now().date()))
-                        conn.commit()
-                        st.success("Account created! Please log in.")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-                    finally:
-                        conn.close()
+                # --- ĐOẠN SỬA BẮT ĐẦU TẠI ĐÂY ---
+                if not new_pass or new_pass.strip() == "":
+                    st.error("⚠️ Password is required!")
+                elif len(new_pass) < 6:
+                    st.warning("⚠️ Password must be at least 6 characters long.")
+                elif new_name and new_user:
+                    hashed = hash_password(new_pass)
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute(
+                                "INSERT INTO employees (full_name, username, password, position, hire_date) VALUES (%s,%s,%s,%s,%s)",
+                                (new_name, new_user, hashed, new_role, datetime.now().date())
+                            )
+                            conn.commit()
+                            st.success("✅ Account created! Please log in.")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                        finally:
+                            conn.close()
+                else:
+                    st.warning("Please fill in Full Name and Username.")
 
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
