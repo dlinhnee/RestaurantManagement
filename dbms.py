@@ -111,7 +111,6 @@ else:
     # ==========================================
     menu = ["Tables & Reservations", "Menu Management", "Billing & Invoices", "Customer Management"]
     
-    # Admin gets an extra report menu
     if st.session_state.user_role == 'admin':
         menu.append("Admin Reports")
         
@@ -123,7 +122,7 @@ else:
     # ==========================================
     if choice == "Customer Management":
         st.header("👥 Customer Management")
-        t1, t2 = st.tabs(["Customer List", "Add New Customer"])
+        t1, t2, t3 = st.tabs(["Customer List", "Add New Customer", "Update Customer Points"])
         
         with t1:
             df_customers = pd.read_sql("SELECT customer_id, name, phone, tier, points FROM customers", conn)
@@ -150,13 +149,28 @@ else:
                             st.error(f"Error: {e}")
                     else:
                         st.warning("Please enter the customer name!")
+                        
+        with t3:
+            st.subheader("Reward Loyalty Points")
+            with st.form("update_customer_form"):
+                u_cust_id = st.number_input("Customer ID", min_value=1, step=1)
+                u_points = st.number_input("Points to Add", min_value=1, step=1)
+                
+                if st.form_submit_button("Update Points"):
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("UPDATE customers SET points = points + %s WHERE customer_id = %s", (u_points, u_cust_id))
+                        conn.commit()
+                        st.success(f"✅ Points successfully added to Customer #{u_cust_id}!")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
     # ==========================================
     # 2. MODULE: TABLES & RESERVATIONS
     # ==========================================
     elif choice == "Tables & Reservations":
         st.header("🪑 Table & Reservation Management")
-        t1, t2 = st.tabs(["Table Status", "Create Reservation (Transaction)"])
+        t1, t2, t3 = st.tabs(["Table Status", "Create Reservation", "Add New Table (Admin)"])
         
         with t1:
             df_tables = pd.read_sql("SELECT table_id, table_number, status, capacity FROM tables", conn)
@@ -172,14 +186,12 @@ else:
                 cursor = conn.cursor()
                 try:
                     conn.start_transaction()
-                    # Step 1: Insert into reservations
                     cursor.execute(
                         "INSERT INTO reservations (customer_id, reservation_time, guest_count) VALUES (%s, %s, %s)",
                         (cust_id, datetime.now(), guests)
                     )
                     new_res_id = cursor.lastrowid 
                     
-                    # Step 2: Insert into reservation_detail (M:N relationship)
                     cursor.execute(
                         "INSERT INTO reservation_detail (reservation_id, table_id) VALUES (%s, %s)",
                         (new_res_id, table_id)
@@ -189,13 +201,29 @@ else:
                 except mysql.connector.Error as err:
                     conn.rollback()
                     st.error(f"❌ Transaction failed, ROLLBACK executed: {err}")
+                    
+        with t3:
+            if st.session_state.user_role == 'admin':
+                with st.form("add_table_form"):
+                    new_table_no = st.number_input("New Table Number", min_value=1, step=1)
+                    new_capacity = st.number_input("Seating Capacity", min_value=1, step=1)
+                    if st.form_submit_button("Add Table"):
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute("INSERT INTO tables (table_number, capacity) VALUES (%s, %s)", (new_table_no, new_capacity))
+                            conn.commit()
+                            st.success(f"✅ Table #{new_table_no} added successfully!")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+            else:
+                st.warning("⚠️ Only Admin accounts have permission to add new tables.")
 
     # ==========================================
     # 3. MODULE: MENU MANAGEMENT 
     # ==========================================
     elif choice == "Menu Management":
         st.header("🍴 Food & Beverage Menu")
-        t1, t2 = st.tabs(["View Menu", "Add New Dish (Admin Only)"])
+        t1, t2, t3 = st.tabs(["View Menu", "Add New Dish (Admin)", "Edit Dish (Admin)"])
         
         with t1:
             df_menu = pd.read_sql("SELECT dish_id, dish_name, price, is_available FROM menu_items", conn)
@@ -221,6 +249,28 @@ else:
                             st.error(f"Error: {e}")
             else:
                 st.warning("⚠️ Only Admin accounts have permission to add new menu items.")
+                
+        with t3:
+            if st.session_state.user_role == 'admin':
+                with st.form("edit_dish_form"):
+                    st.subheader("Update Price and Availability")
+                    e_dish_id = st.number_input("Dish ID to Update", min_value=1, step=1)
+                    e_price = st.number_input("New Price", min_value=0.0, format="%.2f")
+                    e_avail = st.selectbox("Status", [1], format_func=lambda x: "Available (1)" if x == 1 else "Out of Stock (0)")
+                    
+                    if st.form_submit_button("Update Dish"):
+                        cursor = conn.cursor()
+                        try:
+                            cursor.execute(
+                                "UPDATE menu_items SET price = %s, is_available = %s WHERE dish_id = %s",
+                                (e_price, e_avail, e_dish_id)
+                            )
+                            conn.commit()
+                            st.success(f"✅ Dish #{e_dish_id} updated successfully!")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+            else:
+                st.warning("⚠️ Only Admin accounts have permission to edit menu items.")
 
     # ==========================================
     # 4. MODULE: BILLING & INVOICES
@@ -254,14 +304,12 @@ else:
                 try:
                     conn.start_transaction()
                     
-                    # Step 1: Create Invoice
                     cursor.execute(
                         "INSERT INTO invoices (customer_id, table_id, payment_date, order_type) VALUES (%s, %s, %s, %s)",
                         (inv_cust_id, inv_table_id, datetime.now(), 'Dine-in')
                     )
                     new_invoice_id = cursor.lastrowid
                     
-                    # Step 2: Add invoice details
                     cursor.execute("SELECT price FROM menu_items WHERE dish_id = %s", (dish_1,))
                     price_1 = cursor.fetchone()['price']
                     cursor.execute(
@@ -277,14 +325,11 @@ else:
                             (new_invoice_id, dish_2, 1, price_2, price_2)
                         )
                     
-                    # Step 3: Calculate total amount using Stored Procedure
                     cursor.callproc('CalculateInvoiceTotal', [new_invoice_id])
-                    
-                    # Step 4: Free the table
                     cursor.execute("UPDATE tables SET status = 'Available' WHERE table_id = %s", (inv_table_id,))
                     
                     conn.commit()
-                    st.success(f"✅ Invoice #{new_invoice_id} generated successfully! Stored Procedure calculated the total amount.")
+                    st.success(f"✅ Invoice #{new_invoice_id} generated successfully! Procedure calculated the total amount.")
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Transaction failed, ROLLBACK executed. Error: {e}")
@@ -294,14 +339,42 @@ else:
     # ==========================================
     elif choice == "Admin Reports":
         st.header("📊 Admin Dashboard")
+        
+        st.subheader("💰 Daily Revenue & Customer Visits")
+        try:
+            # Truy vấn Gom nhóm Doanh thu và Lượt khách theo Ngày
+            rev_query = """
+                SELECT DATE(payment_date) AS Date, SUM(total_amount) AS Daily_Revenue, COUNT(invoice_id) AS Daily_Visits
+                FROM invoices
+                WHERE payment_date IS NOT NULL
+                GROUP BY DATE(payment_date)
+                ORDER BY Date
+            """
+            df_rev = pd.read_sql(rev_query, conn)
+            
+            if not df_rev.empty:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Revenue Trend ($)**")
+                    st.line_chart(df_rev.set_index('Date')['Daily_Revenue'])
+                with col2:
+                    st.write("**Customer Visits**")
+                    st.bar_chart(df_rev.set_index('Date')['Daily_Visits'])
+            else:
+                st.info("No revenue data available yet. Please generate some invoices first.")
+        except Exception as e:
+            st.error(f"Revenue report loading error: {e}")
+
+        st.markdown("---")
         st.subheader("🏆 Top Selling Dishes (Fetched from SQL VIEW)")
         try:
             df_top_dishes = pd.read_sql("SELECT * FROM View_TopSellingDishes LIMIT 10", conn)
             st.bar_chart(df_top_dishes.set_index('dish_name'))
             st.dataframe(df_top_dishes, use_container_width=True)
         except Exception as e:
-            st.error(f"Report loading error: {e}")
+            st.error(f"Top dishes report loading error: {e}")
 
     if conn:
         conn.close()
+
  
