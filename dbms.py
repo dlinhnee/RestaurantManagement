@@ -32,7 +32,12 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def check_password(password, hashed):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    try:
+        # Nếu mật khẩu trong DB đã được hash bằng bcrypt đúng chuẩn
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
+        # Nếu lỗi (do mật khẩu trong DB là plaintext chưa mã hóa), so sánh trực tiếp
+        return password == hashed
 
 st.set_page_config(page_title="Restaurant Management", layout="wide")
 
