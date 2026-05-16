@@ -10,7 +10,7 @@ DB_CONFIG = {
     "host": "mysql-3c1b790c-vudieulinh305-ebb6.k.aivencloud.com",
     "port": 25428,
     "user": "avnadmin",
-    "password": "AVNS_AIQl70s2tSBuu4XrKE",
+    "password": "AVNS_AIQlh70s2tSBuu4XrKE",
     "database": "RestaurantManagement" 
 }
 
