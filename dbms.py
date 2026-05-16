@@ -198,7 +198,7 @@ else:
                                     conn.commit()
                                     st.success("Customer profile updated successfully!")
                                 except Exception as e:
-                                    st.error(f” Error: {e}")
+                                    st.error(f" Error: {e}")
                 else:
                     st.warning("No customer found with this phone number.")
 
