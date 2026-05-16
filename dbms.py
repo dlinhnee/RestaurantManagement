@@ -528,7 +528,7 @@ else:
             # TAB 2: MÓN ĂN BÁN CHẠY NHẤT (Sử dụng Database View)
             with t2:
                 st.subheader("Top 5 Best-Selling Dishes")
-                st.info(“ Data is fetched dynamically from the Database View: 'View_TopSellingDishes'")
+                st.info("Data is fetched dynamically from the Database View: 'View_TopSellingDishes'")
                 
                 # Gọi trực tiếp VIEW từ MySQL lên để lấy điểm cộng
                 df_top = pd.read_sql("SELECT * FROM View_TopSellingDishes LIMIT 5", conn)
