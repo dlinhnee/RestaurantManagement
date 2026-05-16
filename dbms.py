@@ -60,7 +60,7 @@ if not st.session_state.logged_in:
                 if not new_pass or new_pass.strip() == "":
                     st.error("Password is required!")
                 elif len(new_pass) < 6:
-                    st.warning(“Password must be at least 6 characters long.")
+                    st.warning("Password must be at least 6 characters long.")
                 elif new_name and new_user:
                     hashed = hash_password(new_pass)
                     conn = get_db_connection()
