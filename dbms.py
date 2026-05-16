@@ -1,14 +1,25 @@
-from datetime import datetime
-import hashlib  # Chuẩn SHA-256 theo Lab 11.3
+import streamlit as st
 import mysql.connector
 import pandas as pd
-import streamlit as st
+import bcrypt
+from datetime import datetime
 
-# --- 1. DATABASE CONFIGURATION (Giữ nguyên cấu hình của bạn) ---
-# Giả định bạn đã có hàm get_db_connection() ở đây
-# def get_db_connection():
-#     return mysql.connector.connect(**DB_CONFIG)
+# --- 1. DATABASE CONFIGURATION ---
+# Updated to use your new Database name: RestaurantManagement
+DB_CONFIG = {
+    "host": "mysql-3c1b790c-vudieulinh305-ebb6.k.aivencloud.com",
+    "port": 25428,
+    "user": "avnadmin",
+    "password": "AVNS_AIQl70s2tSBuu4XrKE",
+    "database": "RestaurantManagement" 
+}
 
+def get_db_connection():
+    try:
+        return mysql.connector.connect(**DB_CONFIG, ssl_disabled=False)
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
+        return None
 
 # --- 2. SECURITY & AUTHENTICATION ---
 def hash_password(password):
