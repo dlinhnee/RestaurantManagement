@@ -1,4 +1,5 @@
 import streamlit as st
+import hashlib
 import mysql.connector
 import pandas as pd
 import bcrypt
