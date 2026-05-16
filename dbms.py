@@ -523,7 +523,7 @@ else:
         with t2:
             st.subheader("Create New Invoice")
             cursor = conn.cursor(dictionary=True)
-            st.markdown("###Customer Search")
+            st.markdown("Customer Search")
             cust_phone = st.text_input("Enter Customer Phone Number (Press Enter to search):")
             
             customer_id = None
@@ -539,7 +539,7 @@ else:
                     st.warning("Customer not found. Proceeding as a Walk-in Guest (No points accumulation).")
 
             st.markdown("---")
-            st.markdown("###Order Details")
+            st.markdown("Order Details")
             
             # Truy vấn menu để đưa vào danh sách chọn
             cursor.execute("SELECT dish_id, dish_name, price FROM menu_items WHERE is_available = 1")
