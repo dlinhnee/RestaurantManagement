@@ -252,7 +252,7 @@ else:
                                 st.success(f"Found returning customer: {existing_cust['name']}")
                             else:
                                 if not r_name:
-                                    st.warning(“ New phone number detected! Please enter the Customer Name to create a profile.")
+                                    st.warning("New phone number detected! Please enter the Customer Name to create a profile.")
                                     st.stop()
                                 # 2. Tạo khách hàng mới nếu không tìm thấy
                                 cursor.execute("INSERT INTO customers (name, phone) VALUES (%s, %s)", (r_name, r_phone))
