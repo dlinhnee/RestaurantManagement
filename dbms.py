@@ -95,7 +95,7 @@ else:
     # ==========================================
     menu = ["Tables & Reservations", "Menu Management", "Billing & Invoices", "Customer Management"]
     
-    if st.session_state.user_role == 'admin':
+   if st.session_state.user_role == 'admin':
         menu.append("Admin Reports")
         
     choice = st.sidebar.radio("Navigation", menu)
