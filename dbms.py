@@ -269,7 +269,7 @@ else:
     # 2. MODULE: TABLES & RESERVATIONS
     # ==========================================
     elif choice == "Tables & Reservations":
-        st.header("🪑Table & Reservation Management")
+        st.header("Table & Reservation Management")
         t1, t2, t3 = st.tabs(
             ["Table Status", "Create Reservation", "Add New Table (Admin)"]
         )
