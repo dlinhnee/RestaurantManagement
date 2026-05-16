@@ -369,18 +369,29 @@ else:
 
         with t3:
             if st.session_state.user_role == "admin":
+                # 1. Tính toán số bàn tiếp theo tự động
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT MAX(table_number) AS max_num FROM tables")
+                result = cursor.fetchone()
+                next_table_num = (result['max_num'] + 1) if result['max_num'] else 1
+                
+                st.info(f"The system detected that the next available Table Number is: **{next_table_num}**")
+                
+                # 2. Form thêm bàn
                 with st.form("add_table_form"):
+                    # Cài đặt value = số bàn tiếp theo và khóa ô nhập (disabled=True)
                     new_table_no = st.number_input(
-                        "New Table Number", min_value=1, step=1
+                        "New Table Number (Auto-generated)", value=next_table_num, disabled=True
                     )
                     new_capacity = st.number_input(
-                        "Seating Capacity", min_value=1, step=1
+                        "Seating Capacity", min_value=1, step=1, value=4
                     )
+                    
                     if st.form_submit_button("Add Table"):
-                        cursor = conn.cursor()
                         try:
+                            # Cập nhật thêm thuộc tính status = 'Available' để bàn mới tạo sẵn sàng đón khách
                             cursor.execute(
-                                "INSERT INTO tables (table_number, capacity) VALUES (%s, %s)",
+                                "INSERT INTO tables (table_number, status, capacity) VALUES (%s, 'Available', %s)",
                                 (new_table_no, new_capacity),
                             )
                             conn.commit()
@@ -442,35 +453,50 @@ else:
 
         with t3:
             if st.session_state.user_role == "admin":
-                with st.form("edit_dish_form"):
-                    st.subheader("Update Price and Availability")
-                    e_dish_id = st.number_input(
-                        "Dish ID to Update", min_value=1, step=1
-                    )
-                    e_price = st.number_input(
-                        "New Price (VND)", min_value=0, step=1000, format="%d"
-                    )
+                st.subheader("Update Price and Availability")
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT dish_id, dish_name, price, is_available FROM menu_items")
+                dishes = cursor.fetchall()
+                
+                if dishes:
+                    dish_options = {f"#{d['dish_id']} - {d['dish_name']} (Current: {int(d['price']):,} VND)": d for d in dishes}
+                    
+                    selected_dish_label = st.selectbox("Select Dish to Update", list(dish_options.keys()))
+                    selected_dish = dish_options[selected_dish_label]
+                    e_dish_id = selected_dish['dish_id']
+                    
+                    # 3. Form cập nhật thông tin
+                    with st.form("edit_dish_form"):
+                        # Tự động điền giá trị cũ của món ăn vào ô nhập để Admin dễ tham khảo
+                        e_price = st.number_input(
+                            "New Price (VND)", 
+                            min_value=0, 
+                            step=1000, 
+                            value=int(selected_dish['price']), 
+                            format="%d"
+                        )
 
-                    # Đã sửa lỗi options: Cho phép chọn 1 (Available) hoặc 0 (Out of stock)
-                    e_avail = st.selectbox(
-                        "Status",
-                        options=[1, 0],
-                        format_func=lambda x: (
-                            "Available" if x == 1 else "Out of Stock"
-                        ),
-                    )
+                        # Tự động chọn trạng thái hiện hành của món ăn
+                        e_avail = st.selectbox(
+                            "Status",
+                            options=[1],
+                            index=0 if selected_dish['is_available'] == 1 else 1,
+                            format_func=lambda x: "Available" if x == 1 else "Out of Stock"
+                        )
 
-                    if st.form_submit_button("Update Dish"):
-                        cursor = conn.cursor()
-                        try:
-                            cursor.execute(
-                                "UPDATE menu_items SET price = %s, is_available = %s WHERE dish_id = %s",
-                                (e_price, e_avail, e_dish_id),
-                            )
-                            conn.commit()
-                            st.success(f" Dish #{e_dish_id} updated successfully!")
-                        except Exception as e:
-                            st.error(f"Error: {e}")
+                        if st.form_submit_button("Update Dish"):
+                            try:
+                                update_cursor = conn.cursor()
+                                update_cursor.execute(
+                                    "UPDATE menu_items SET price = %s, is_available = %s WHERE dish_id = %s",
+                                    (e_price, e_avail, e_dish_id),
+                                )
+                                conn.commit()
+                                st.success(f"Dish '{selected_dish['dish_name']}' updated successfully!")
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                else:
+                    st.info("No dishes found in the database. Please add a dish first.")
             else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
@@ -495,203 +521,91 @@ else:
             st.dataframe(df_invoices, use_container_width=True)
 
         with t2:
-            st.subheader("Checkout & Payment")
+            st.subheader("Create New Invoice")
             cursor = conn.cursor(dictionary=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Customer & Table Info**")
-                inv_phone = st.text_input("Customer Phone (*)", key="inv_phone")
-                inv_name = st.text_input("Customer Name (If new)", key="inv_name")
-
-                cursor.execute("SELECT table_id, table_number FROM tables")
-                tables = cursor.fetchall()
-                if tables:
-                    table_options = {
-                        f"Table {t['table_number']}": t["table_id"] for t in tables
-                    }
-                    table_label = st.selectbox(
-                        "Select Table", list(table_options.keys())
-                    )
-                    inv_table_id = table_options[table_label]
+            st.markdown("###Customer Search")
+            cust_phone = st.text_input("Enter Customer Phone Number (Press Enter to search):")
+            
+            customer_id = None
+            if cust_phone:
+                cursor.execute("SELECT customer_id, name, points, tier FROM customers WHERE phone = %s", (cust_phone,))
+                cust_info = cursor.fetchone()
+                
+                if cust_info:
+                    customer_id = cust_info['customer_id']
+                    # Hiện ngay khung màu xanh lá cây báo tên và điểm
+                    st.success(f"**Found Customer:** {cust_info['name']} | **Tier:** {cust_info['tier']} | **Current Points: {cust_info['points']} pts**")
                 else:
-                    st.error("No tables found in Database!")
+                    st.warning("Customer not found. Proceeding as a Walk-in Guest (No points accumulation).")
 
-                st.markdown("**Loyalty Program**")
-                points_to_use = st.number_input(
-                    "Points to Redeem (1 Point = 100 VND)", min_value=0, step=1
-                )
+            st.markdown("---")
+            st.markdown("###Order Details")
+            
+            # Truy vấn menu để đưa vào danh sách chọn
+            cursor.execute("SELECT dish_id, dish_name, price FROM menu_items WHERE is_available = 1")
+            menu_items = cursor.fetchall()
+            menu_options = {f"{item['dish_name']} - {int(item['price']):,} VND": item for item in menu_items}
 
-            with col2:
-                st.markdown("**🍴 Order Details**")
-                cursor.execute(
-                    "SELECT dish_id, dish_name, price FROM menu_items WHERE is_available = 1"
-                )
-                dishes = cursor.fetchall()
+            # Dùng session_state để lưu số lượng hàng (món) đang được order, khởi tạo là 1
+            if 'item_count' not in st.session_state:
+                st.session_state.item_count = 1
 
-                if dishes:
-                    dish_options = {
-                        f"{d['dish_name']} ({int(d['price']):,} VND)": d
-                        for d in dishes
-                    }
-                    dish_options["None (Skip)"] = None
+            # Hàm tăng số lượng món lên +1 khi người dùng bấm nút
+            def add_dish_row():
+                st.session_state.item_count += 1
 
-                    d1_label = st.selectbox(
-                        "Select Dish 1 (*)",
-                        [k for k in dish_options.keys() if k != "None (Skip)"],
-                        key="d1",
-                    )
-                    qty1 = st.number_input(
-                        "Quantity 1", min_value=1, step=1, key="q1"
-                    )
-                    dish1 = dish_options[d1_label]
-
-                    d2_label = st.selectbox(
-                        "Select Dish 2 (Optional)",
-                        list(dish_options.keys()),
-                        index=len(dish_options) - 1,
-                        key="d2",
-                    )
-                    qty2 = (
-                        st.number_input(
-                            "Quantity 2", min_value=1, step=1, key="q2"
-                        )
-                        if d2_label != "None (Skip)"
-                        else 0
-                    )
-                    dish2 = (
-                        dish_options[d2_label]
-                        if d2_label != "None (Skip)"
-                        else None
-                    )
-                else:
-                    st.error("Menu is empty or out of stock!")
-
-            if st.button("Generate Invoice & Checkout"):
-                if not inv_phone:
-                    st.warning("Please enter the customer's phone number!")
-                else:
-                    try:
-                        conn.start_transaction()
-
-                        # 1. KIỂM TRA KHÁCH HÀNG & SỐ ĐIỂM
-                        cursor.execute(
-                            "SELECT customer_id, name, points FROM customers WHERE phone = %s",
-                            (inv_phone,),
-                        )
-                        existing_cust = cursor.fetchone()
-
-                        if existing_cust:
-                            final_cust_id = existing_cust["customer_id"]
-                            if points_to_use > existing_cust["points"]:
-                                st.error(
-                                    f"Not enough points! {existing_cust['name']} only has {existing_cust['points']} points."
-                                )
-                                conn.rollback()
-                                st.stop()
-                        else:
-                            if points_to_use > 0:
-                                st.error(
-                                    "New customers have 0 points to redeem. Please set points to 0."
-                                )
-                                conn.rollback()
-                                st.stop()
-                            if not inv_name:
-                                st.warning(
-                                    "New phone number detected! Please enter the Customer Name."
-                                )
-                                st.stop()
-
-                            cursor.execute(
-                                "INSERT INTO customers (name, phone) VALUES (%s, %s)",
-                                (inv_name, inv_phone),
-                            )
-                            final_cust_id = cursor.lastrowid
-                            st.success(
-                                f"New customer profile created for '{inv_name}'"
-                            )
-
-                        # 2. TẠO HÓA ĐƠN
-                        cursor.execute(
-                            "INSERT INTO invoices (customer_id, table_id, payment_date, order_type) VALUES (%s, %s, %s, %s)",
-                            (final_cust_id, inv_table_id, datetime.now(), "Dine-in"),
-                        )
-                        new_invoice_id = cursor.lastrowid
-
-                        # 3. THÊM CHI TIẾT MÓN ĂN
-                        cursor.execute(
-                            "INSERT INTO invoice_details (invoice_id, dish_id, quantity, unit_price, line_subtotal) VALUES (%s, %s, %s, %s, %s)",
-                            (
-                                new_invoice_id,
-                                dish1["dish_id"],
-                                qty1,
-                                dish1["price"],
-                                dish1["price"] * qty1,
-                            ),
-                        )
-                        if dish2:
-                            cursor.execute(
-                                "INSERT INTO invoice_details (invoice_id, dish_id, quantity, unit_price, line_subtotal) VALUES (%s, %s, %s, %s, %s)",
-                                (
-                                    new_invoice_id,
-                                    dish2["dish_id"],
-                                    qty2,
-                                    dish2["price"],
-                                    dish2["price"] * qty2,
-                                ),
-                            )
-
-                        # 4. TÍNH TỔNG TIỀN VÀ TRỪ CHIẾT KHẤU
-                        cursor.callproc("CalculateInvoiceTotal", [new_invoice_id])
-
-                        discount_amount = points_to_use * 100
-                        if discount_amount > 0:
-                            cursor.execute(
-                                "UPDATE invoices SET total_amount = total_amount - %s WHERE invoice_id = %s",
-                                (discount_amount, new_invoice_id),
-                            )
-
-                        cursor.execute(
-                            "SELECT total_amount FROM invoices WHERE invoice_id = %s",
-                            (new_invoice_id,),
-                        )
-                        final_total = int(cursor.fetchone()["total_amount"])
-
-                        # TÍNH ĐIỂM THƯỞNG MỚI
-                        earned_points = max(0, final_total // 1000)
-
-                        # 5. GIẢI PHÓNG BÀN
-                        cursor.execute(
-                            "UPDATE tables SET status = 'Available' WHERE table_id = %s",
-                            (inv_table_id,),
-                        )
-
-                        # 6. CẬP NHẬT VÍ ĐIỂM KHÁCH HÀNG
-                        cursor.execute(
-                            "UPDATE customers SET points = points - %s + %s WHERE customer_id = %s",
-                            (points_to_use, earned_points, final_cust_id),
-                        )
-
-                        conn.commit()
-
-                        st.success(
-                            f"Invoice #{new_invoice_id} generated successfully! Table is now free."
-                        )
-                        st.success(f"Final Total to Pay: {final_total:,} VND")
-
-                        if points_to_use > 0:
-                            st.info(
-                                f"Customer redeemed {points_to_use} points for a discount of {discount_amount:,} VND."
-                            )
-                        st.info(
-                            f"Earned {earned_points} new bonus points for this purchase!"
-                        )
-
-                    except Exception as e:
-                        conn.rollback()
-                        st.error(
-                            f"Transaction failed, ROLLBACK executed. Error: {e}"
-                        )
+            order_items = []
+            
+            # Vòng lặp tự động đẻ ra N hàng tùy theo người dùng bấm nút mấy lần
+            for i in range(st.session_state.item_count):
+                cols = st.columns([1, 2])
+                with cols:
+                    selected_dish_label = st.selectbox(f"Dish {i+1}", options=list(menu_options.keys()), key=f"dish_{i}")
+                with cols[2]:
+                    qty = st.number_input(f"Qty {i+1}", min_value=1, step=1, value=1, key=f"qty_{i}")
+                
+                dish_info = menu_options[selected_dish_label]
+                order_items.append({
+                    "dish_id": dish_info['dish_id'],
+                    "price": dish_info['price'],
+                    "quantity": qty
+                })
+            
+            # Nút Thêm Món (kích hoạt hàm add_dish_row)
+            st.button("Add Another Dish", on_click=add_dish_row)
+            
+            st.markdown("---")
+            order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
+          
+            if st.button("Generate Invoice & Checkout", type="primary"):
+                try:
+                    # Tự động cộng tổng tiền của N món
+                    total_amount = sum(item['price'] * item['quantity'] for item in order_items)
+                    
+                    cursor.execute("""
+                        INSERT INTO invoices (customer_id, total_amount, payment_date, order_type, delivery_status) 
+                        VALUES (%s, %s, %s, %s, 'Delivered')
+                    """, (customer_id, total_amount, datetime.now(), order_type))
+                    
+                    new_invoice_id = cursor.lastrowid
+                    
+                    for item in order_items:
+                        line_subtotal = item['price'] * item['quantity']
+                        cursor.execute("""
+                            INSERT INTO invoice_details (invoice_id, dish_id, quantity, unit_price, line_subtotal) 
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (new_invoice_id, item['dish_id'], item['quantity'], item['price'], line_subtotal))
+                    
+                    conn.commit()
+                    
+                    # Reset lại form về 1 món cho đơn hàng tiếp theo
+                    st.session_state.item_count = 1
+                    
+                    st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(total_amount):,} VND**")
+                    
+                except Exception as e:
+                    st.error(f"Error creating invoice: {e}")
+                    conn.rollback()
 
     # ==========================================
     # 5. MODULE: ADMIN REPORTS
@@ -768,3 +682,5 @@ else:
     # Đóng kết nối cơ sở dữ liệu sau khi chạy xong ứng dụng chính
     if conn:
         conn.close()
+
+
