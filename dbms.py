@@ -179,7 +179,7 @@ else:
                                         WHERE customer_id=%s
                                     """, (u_name, u_phone, u_email, u_address, u_points, u_tier, customer['customer_id']))
                                     conn.commit()
-                                    st.success(“Customer profile updated successfully!")
+                                    st.success("Customer profile updated successfully!")
                                 except Exception as e:
                                     st.error(f” Error: {e}")
                 else:
