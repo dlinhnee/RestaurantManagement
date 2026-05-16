@@ -558,10 +558,11 @@ else:
             
             # Vòng lặp tự động đẻ ra N hàng tùy theo người dùng bấm nút mấy lần
             for i in range(st.session_state.item_count):
-                cols = st.columns([1, 2])
-                with cols:
+                col1, col2 = st.columns(2) 
+                
+                with col1:
                     selected_dish_label = st.selectbox(f"Dish {i+1}", options=list(menu_options.keys()), key=f"dish_{i}")
-                with cols[2]:
+                with col2:
                     qty = st.number_input(f"Qty {i+1}", min_value=1, step=1, value=1, key=f"qty_{i}")
                 
                 dish_info = menu_options[selected_dish_label]
