@@ -2,7 +2,6 @@ import streamlit as st
 import hashlib
 import mysql.connector
 import pandas as pd
-import bcrypt
 from datetime import datetime
 
 # --- 1. DATABASE CONFIGURATION ---
