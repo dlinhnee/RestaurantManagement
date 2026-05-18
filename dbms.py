@@ -438,7 +438,7 @@ else:
                         try:
                             cursor.execute(
                                 "INSERT INTO menu_items (dish_name, price, category_id) VALUES (%s, %s, %s)",
-                                (dish_name, price, cat_id),
+                                (dish_name, price (VND), cat_id),
                             )
                             conn.commit()
                             st.success(
