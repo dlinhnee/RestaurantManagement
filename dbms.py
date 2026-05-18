@@ -416,7 +416,7 @@ else:
 
         with t1:
             df_menu = pd.read_sql(
-                "SELECT dish_id, dish_name, price, is_available FROM menu_items",
+                "SELECT dish_id, dish_name, price (VND), is_available FROM menu_items",
                 conn,
             )
             df_menu["is_available"] = df_menu["is_available"].map(
