@@ -29,6 +29,37 @@ def check_password(password, hashed):
     return hash_password(password) == hashed
 
 
+
+# --- THÊM ĐOẠN NÀY VÀO ĐÂY (KHOẢNG DÒNG 27) ---
+def change_password_db(username, old_password, new_password):
+    """Hàm kiểm tra mật khẩu cũ và cập nhật mật khẩu mới"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor(dictionary=True)
+        try:
+            # 1. Kiểm tra mật khẩu cũ
+            cursor.execute("SELECT password FROM employees WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            
+            if user and check_password(old_password, user["password"]):
+                # 2. Mã hóa mật khẩu mới và update
+                new_password_hash = hash_password(new_password)
+                cursor.execute(
+                    "UPDATE employees SET password = %s WHERE username = %s",
+                    (new_password_hash, username)
+                )
+                conn.commit()
+                return True, "Password updated successfully!"
+            else:
+                return False, "Incorrect old password."
+        except Exception as e:
+            return False, f"Database error: {e}"
+        finally:
+            cursor.close()
+            conn.close()
+    return False, "Database connection failed."
+
+
 # --- 3. PAGE UI SETUP ---
 st.set_page_config(page_title="Restaurant Management", layout="wide")
 
@@ -59,6 +90,7 @@ if not st.session_state.logged_in:
             if user and check_password(pass_in, user["password"]):
                 st.session_state.logged_in = True
                 st.session_state.user_role = user["position"]
+                st.session_state.login_user = user_in
                 st.rerun()
             else:
                 st.error("Invalid credentials.")
@@ -75,6 +107,7 @@ else:
     # NAVIGATION MENU
     # ==========================================
     menu = [
+        "Change Password",
         "Tables & Reservations",
         "Menu Management",
         "Billing & Invoices",
@@ -626,6 +659,41 @@ else:
                         st.bar_chart(df_top.set_index("Dish Name")["Quantity Sold"])
                 else:
                     st.info("No sales data available yet.")
+
+    # ==========================================
+    # MODULE: CHANGE PASSWORD (THÊM VÀO KHOẢNG DÒNG 342)
+    # ==========================================
+    elif choice == "🔒 Change Password":
+        st.header("🔒 Change Your Password")
+        st.caption("For security purposes, please do not share your password with anyone.")
+        
+        with st.form("change_password_form", clear_on_submit=True):
+            old_pass = st.text_input("Old Password", type="password")
+            new_pass = st.text_input("New Password", type="password")
+            confirm_pass = st.text_input("Confirm New Password", type="password")
+            
+            submit_btn = st.form_submit_button("Update Password", type="primary")
+            
+            if submit_btn:
+                if not old_pass or not new_pass or not confirm_pass:
+                    st.error("Please fill in all fields.")
+                elif new_pass == old_pass:
+                    st.warning("New password cannot be the same as the old password.")
+                elif new_pass != confirm_pass:
+                    st.error("New password and Confirm password do not match.")
+                elif len(new_pass) < 6:
+                    st.warning("New password should be at least 6 characters long.")
+                else:
+                    current_user = st.session_state.get("login_user")
+                    success, message = change_password_db(current_user, old_pass, new_pass)
+                    if success:
+                        st.success(message)
+                        st.balloons()
+                    else:
+                        st.error(message)
+
+    if conn:
+        conn.close()
 
     if conn:
         conn.close()
