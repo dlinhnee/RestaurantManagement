@@ -36,34 +36,32 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_role" not in st.session_state:
     st.session_state.user_role = None
-
 # --- 4. LOGIN TABS ---
 if not st.session_state.logged_in:
     tab_login = st.tabs(["Login"])
+    
+    st.header("Staff Login")
+    user_in = st.text_input("Username", key="login_user")
+    pass_in = st.text_input("Password", type="password", key="login_pass")
+    if st.button("Sign In"):
+        conn = get_db_connection()
 
-        st.header("Staff Login")
-        user_in = st.text_input("Username", key="login_user")
-        pass_in = st.text_input("Password", type="password", key="login_pass")
-        if st.button("Sign In"):
-            conn = get_db_connection()
-            if conn:
-                cursor = conn.cursor(dictionary=True)
-                # ANTI SQL INJECTION
-                cursor.execute(
-                    "SELECT password, position FROM employees WHERE username = %s",
-                    (user_in,),
-                )
-                user = cursor.fetchone()
-                conn.close()
-                if user and check_password(pass_in, user["password"]):
-                    st.session_state.logged_in = True
-                    st.session_state.user_role = user["position"]
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials.")
+        if conn:
+            cursor = conn.cursor(dictionary=True)
 
-
-
+            cursor.execute(
+                "SELECT password, position FROM employees WHERE username = %s",
+                (user_in,),
+            )
+            user = cursor.fetchone()
+            conn.close()
+            
+            if user and check_password(pass_in, user["password"]):
+                st.session_state.logged_in = True
+                st.session_state.user_role = user["position"]
+                st.rerun()
+            else:
+                st.error("Invalid credentials.")
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
     # Sidebar
