@@ -662,8 +662,8 @@ else:
     # ==========================================
     # MODULE: CHANGE PASSWORD (THÊM VÀO KHOẢNG DÒNG 342)
     # ==========================================
-    elif choice == "🔒 Change Password":
-        st.header("🔒 Change Your Password")
+    elif choice == "Change Password":
+        st.header("Change Your Password")
         st.caption("For security purposes, please do not share your password with anyone.")
         
         with st.form("change_password_form", clear_on_submit=True):
