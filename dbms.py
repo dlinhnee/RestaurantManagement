@@ -41,7 +41,6 @@ if "user_role" not in st.session_state:
 if not st.session_state.logged_in:
     tab_login = st.tabs(["Login"])
 
-    with tab_login:
         st.header("Staff Login")
         user_in = st.text_input("Username", key="login_user")
         pass_in = st.text_input("Password", type="password", key="login_pass")
