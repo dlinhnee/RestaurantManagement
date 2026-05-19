@@ -306,7 +306,7 @@ else:
                 else:
                     st.warning("No customer found with this phone number.")
 
-    # ==========================================
+# ==========================================
     # 2. MODULE: TABLES & RESERVATIONS
     # ==========================================
     elif choice == "Tables & Reservations":
@@ -355,15 +355,17 @@ else:
                             f"Cannot book! Table {selected_table['table_number']} only has a capacity of {selected_table['capacity']} guests."
                         )
                     else:
+                        tx_cursor = conn.cursor(dictionary=True)
                         try:
-                            conn.start_transaction()
+                            # Disable autocommit to safely start a managed transaction blocks
+                            conn.autocommit = False
 
-                            # 1. Tìm khách hàng theo SĐT
-                            cursor.execute(
+                            # 1. Search for customer by Phone
+                            tx_cursor.execute(
                                 "SELECT customer_id, name FROM customers WHERE phone = %s",
                                 (r_phone,),
                             )
-                            existing_cust = cursor.fetchone()
+                            existing_cust = tx_cursor.fetchone()
 
                             if existing_cust:
                                 final_cust_id = existing_cust["customer_id"]
@@ -376,35 +378,43 @@ else:
                                         "New phone number detected! Please enter the Customer Name to create a profile."
                                     )
                                     st.stop()
-                                # 2. Tạo khách hàng mới
-                                cursor.execute(
+                                
+                                # 2. Create new customer profile
+                                tx_cursor.execute(
                                     "INSERT INTO customers (name, phone) VALUES (%s, %s)",
                                     (r_name, r_phone),
                                 )
-                                final_cust_id = cursor.lastrowid
+                                final_cust_id = tx_cursor.lastrowid
                                 st.success(
                                     f"New customer profile created for '{r_name}'"
                                 )
 
-                            # 3. Tạo lịch đặt bàn
-                            cursor.execute(
+                            # 3. Create reservation entry
+                            tx_cursor.execute(
                                 "INSERT INTO reservations (customer_id, reservation_time, guest_count) VALUES (%s, %s, %s)",
                                 (final_cust_id, datetime.now(), guests),
                             )
-                            new_res_id = cursor.lastrowid
+                            new_res_id = tx_cursor.lastrowid
 
-                            # 4. Lưu chi tiết bàn đặt
-                            cursor.execute(
+                            # 4. Save reservation table details
+                            tx_cursor.execute(
                                 "INSERT INTO reservation_detail (reservation_id, table_id) VALUES (%s, %s)",
                                 (new_res_id, selected_table["table_id"]),
                             )
+                            
                             conn.commit()
                             st.success(
                                 f"Table {selected_table['table_number']} booked successfully for {guests} guests!"
                             )
+                            st.rerun()
+                            
                         except Exception as err:
                             conn.rollback()
                             st.error(f"Transaction failed: {err}")
+                        finally:
+                            tx_cursor.close()
+                            # Restore default connection auto-commit state safely
+                            conn.autocommit = True
             else:
                 st.warning("No tables are currently available.")
 
@@ -417,9 +427,7 @@ else:
                 
                 st.info(f"The system detected that the next available Table Number is: **{next_table_num}**")
                 
-                # 2. Form table
                 with st.form("add_table_form"):
-                    # Cài đặt value = số bàn tiếp theo và khóa ô nhập (disabled=True)
                     new_table_no = st.number_input(
                         "New Table Number (Auto-generated)", value=next_table_num, disabled=True
                     )
