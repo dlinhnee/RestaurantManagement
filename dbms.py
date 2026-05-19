@@ -39,7 +39,7 @@ if "user_role" not in st.session_state:
 
 # --- 4. LOGIN TABS ---
 if not st.session_state.logged_in:
-    tab_login, tab_register = st.tabs(["Login", "Register"])
+    tab_login = st.tabs(["Login"])
 
     with tab_login:
         st.header("Staff Login")
