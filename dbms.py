@@ -5,7 +5,6 @@ import pandas as pd
 from datetime import datetime
 
 # --- 1. DATABASE CONFIGURATION ---
-# Updated to use your new Database name: RestaurantManagement
 DB_CONFIG = {
     "host": "mysql-3c1b790c-vudieulinh305-ebb6.k.aivencloud.com",
     "port": 25428,
@@ -23,12 +22,10 @@ def get_db_connection():
 
 # --- 2. SECURITY & AUTHENTICATION ---
 def hash_password(password):
-    # Dùng hashlib để tạo mã băm SHA-256 (Khớp 100% với hàm SHA2(pass, 256) của MySQL)
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def check_password(password, hashed):
-    # Băm mật khẩu người dùng nhập vào và so sánh với mã băm trong Database
     return hash_password(password) == hashed
 
 
@@ -130,7 +127,6 @@ else:
     choice = st.sidebar.radio("Navigation", menu)
     conn = get_db_connection()
 
-    # Thao tác xử lý theo Menu đã chọn (Sử dụng cấu trúc IF/ELIF chuẩn)
     # ==========================================
     # MODULE 1: CUSTOMER MANAGEMENT
     # ==========================================
@@ -369,7 +365,6 @@ else:
 
         with t3:
             if st.session_state.user_role == "admin":
-                # 1. Tính toán số bàn tiếp theo tự động
                 cursor = conn.cursor(dictionary=True)
                 cursor.execute("SELECT MAX(table_number) AS max_num FROM tables")
                 result = cursor.fetchone()
@@ -377,7 +372,7 @@ else:
                 
                 st.info(f"The system detected that the next available Table Number is: **{next_table_num}**")
                 
-                # 2. Form thêm bàn
+                # 2. Form table
                 with st.form("add_table_form"):
                     # Cài đặt value = số bàn tiếp theo và khóa ô nhập (disabled=True)
                     new_table_no = st.number_input(
@@ -389,7 +384,6 @@ else:
                     
                     if st.form_submit_button("Add Table"):
                         try:
-                            # Cập nhật thêm thuộc tính status = 'Available' để bàn mới tạo sẵn sàng đón khách
                             cursor.execute(
                                 "INSERT INTO tables (table_number, status, capacity) VALUES (%s, 'Available', %s)",
                                 (new_table_no, new_capacity),
@@ -467,7 +461,6 @@ else:
                     
                     # 3. Form cập nhật thông tin
                     with st.form("edit_dish_form"):
-                        # Tự động điền giá trị cũ của món ăn vào ô nhập để Admin dễ tham khảo
                         e_price = st.number_input(
                             "New Price (VND)", 
                             min_value=0, 
@@ -476,7 +469,6 @@ else:
                             format="%d"
                         )
 
-                        # Tự động chọn trạng thái hiện hành của món ăn
                         e_avail = st.selectbox(
                             "Status",
                             options=[1],
@@ -533,7 +525,6 @@ else:
                 
                 if cust_info:
                     customer_id = cust_info['customer_id']
-                    # Hiện ngay khung màu xanh lá cây báo tên và điểm
                     st.success(f"**Found Customer:** {cust_info['name']} | **Tier:** {cust_info['tier']} | **Current Points: {cust_info['points']} pts**")
                 else:
                     st.warning("Customer not found. Proceeding as a Walk-in Guest (No points accumulation).")
@@ -541,22 +532,20 @@ else:
             st.markdown("---")
             st.markdown("Order Details")
             
-            # Truy vấn menu để đưa vào danh sách chọn
+            # Truy vấn menu 
             cursor.execute("SELECT dish_id, dish_name, price FROM menu_items WHERE is_available = 1")
             menu_items = cursor.fetchall()
             menu_options = {f"{item['dish_name']} - {int(item['price']):,} VND": item for item in menu_items}
 
-            # Dùng session_state để lưu số lượng hàng (món) đang được order, khởi tạo là 1
+            # lưu số lượng (món) đang được order, khởi tạo là 1
             if 'item_count' not in st.session_state:
                 st.session_state.item_count = 1
 
-            # Hàm tăng số lượng món lên +1 khi người dùng bấm nút
             def add_dish_row():
                 st.session_state.item_count += 1
 
             order_items = []
             
-            # Vòng lặp tự động đẻ ra N hàng tùy theo người dùng bấm nút mấy lần
             for i in range(st.session_state.item_count):
                 col1, col2 = st.columns(2) 
                 
@@ -572,7 +561,7 @@ else:
                     "quantity": qty
                 })
             
-            # Nút Thêm Món (kích hoạt hàm add_dish_row)
+            # Add dish (add_dish_row)
             st.button("Add Another Dish", on_click=add_dish_row)
             
             st.markdown("---")
@@ -580,7 +569,6 @@ else:
           
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try:
-                    # Tự động cộng tổng tiền của N món
                     total_amount = sum(item['price'] * item['quantity'] for item in order_items)
                     
                     cursor.execute("""
@@ -599,7 +587,7 @@ else:
                     
                     conn.commit()
                     
-                    # Reset lại form về 1 món cho đơn hàng tiếp theo
+                    # Reset
                     st.session_state.item_count = 1
                     
                     st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(total_amount):,} VND**")
@@ -608,9 +596,8 @@ else:
                     st.error(f"Error creating invoice: {e}")
                     conn.rollback()
 
-    # ==========================================
+
     # 5. MODULE: ADMIN REPORTS
-    # ==========================================
     elif choice == "Admin Reports":
         st.header("Admin Dashboard & Reports")
 
@@ -680,7 +667,6 @@ else:
                 else:
                     st.info("No sales data available yet.")
 
-    # Đóng kết nối cơ sở dữ liệu sau khi chạy xong ứng dụng chính
     if conn:
         conn.close()
 
