@@ -60,6 +60,36 @@ def change_password_db(username, old_password, new_password):
     return False, "Database connection failed."
 
 
+def self_reset_password_db(username, phone):
+    """Allows staff to self-reset password to '123456' using Username and Phone"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "SELECT employee_id FROM employees WHERE username = %s AND phone = %s", 
+                (username, phone)
+            )
+            emp = cursor.fetchone()
+            
+            if emp:
+                default_password_hash = hash_password("123456")
+                cursor.execute(
+                    "UPDATE employees SET password = %s WHERE employee_id = %s",
+                    (default_password_hash, emp["employee_id"])
+                )
+                conn.commit()
+                return True, "Password has been successfully reset to default '123456'!"
+            else:
+                return False, "Invalid Username or Phone Number match."
+        except Exception as e:
+            return False, f"Database error: {e}"
+        finally:
+            cursor.close()
+            conn.close()
+    return False, "Database connection failed."
+
+
 # --- 3. PAGE UI SETUP ---
 st.set_page_config(page_title="Restaurant Management", layout="wide")
 
@@ -67,32 +97,56 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_role" not in st.session_state:
     st.session_state.user_role = None
+    
 # --- 4. LOGIN TABS ---
 if not st.session_state.logged_in:
-    tab_login = st.tabs(["Login"])
+    tab_login, tab_forgot = st.tabs(["Staff Login", "Forgot Password"])
     
-    st.header("Staff Login")
-    user_in = st.text_input("Username", key="login_user")
-    pass_in = st.text_input("Password", type="password", key="login_pass")
-    if st.button("Sign In"):
-        conn = get_db_connection()
+    with tab_login:
+        st.header("Staff Login")
+        user_in = st.text_input("Username", key="login_user")
+        pass_in = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Sign In"):
+            conn = get_db_connection()
 
-        if conn:
-            cursor = conn.cursor(dictionary=True)
+            if conn:
+                cursor = conn.cursor(dictionary=True)
 
-            cursor.execute(
-                "SELECT password, position FROM employees WHERE username = %s",
-                (user_in,),
-            )
-            user = cursor.fetchone()
-            conn.close()
+                cursor.execute(
+                    "SELECT password, position FROM employees WHERE username = %s",
+                    (user_in,),
+                )
+                user = cursor.fetchone()
+                conn.close()
+                
+                if user and check_password(pass_in, user["password"]):
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = user["position"]
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials.")
+
+    with tab_forgot:
+        st.header("Reset Password")
+        st.info("Enter your registered Username and Phone Number to reset your password back to default.")
+        
+        with st.form("forgot_password_form"):
+            reset_username = st.text_input("Your Username")
+            reset_phone = st.text_input("Your Phone Number")
             
-            if user and check_password(pass_in, user["password"]):
-                st.session_state.logged_in = True
-                st.session_state.user_role = user["position"]
-                st.rerun()
-            else:
-                st.error("Invalid credentials.")
+            submit_reset = st.form_submit_button("Recover Password", type="primary")
+            
+            if submit_reset:
+                if not reset_username or not reset_phone:
+                    st.error("Please fill in both Username and Phone Number fields.")
+                else:
+                    success, message = self_reset_password_db(reset_username, reset_phone)
+                    if success:
+                        st.success(message)
+                        st.info("Switch back to the 'Staff Login' tab and log in using **123456**.")
+                    else:
+                        st.error(message)
+                        
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
     # Sidebar
