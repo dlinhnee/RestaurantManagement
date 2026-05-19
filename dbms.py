@@ -90,7 +90,6 @@ if not st.session_state.logged_in:
             if user and check_password(pass_in, user["password"]):
                 st.session_state.logged_in = True
                 st.session_state.user_role = user["position"]
-                st.session_state.login_user = user_in
                 st.rerun()
             else:
                 st.error("Invalid credentials.")
