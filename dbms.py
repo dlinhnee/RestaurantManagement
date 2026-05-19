@@ -128,19 +128,18 @@ if not st.session_state.logged_in:
 
     with tab_forgot:
         st.header("Reset Password")
-        st.info("Enter your registered Username and Phone Number to reset your password back to default.")
+        st.info("Enter your registered Username to reset your password back to default.")
         
         with st.form("forgot_password_form"):
             reset_username = st.text_input("Your Username")
-            reset_phone = st.text_input("Your Phone Number")
             
             submit_reset = st.form_submit_button("Recover Password", type="primary")
             
             if submit_reset:
-                if not reset_username or not reset_phone:
-                    st.error("Please fill in both Username and Phone Number fields.")
+                if not reset_username:
+                    st.error("Please fill in Username fields.")
                 else:
-                    success, message = self_reset_password_db(reset_username, reset_phone)
+                    success, message = self_reset_password_db(reset_username)
                     if success:
                         st.success(message)
                         st.info("Switch back to the 'Staff Login' tab and log in using **123456**.")
