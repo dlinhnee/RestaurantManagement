@@ -311,16 +311,18 @@ else:
     # ==========================================
     elif choice == "Tables & Reservations":
         st.header("Table & Reservation Management")
-        t1, t2, t3 = st.tabs(
-            ["Table Status", "Create Reservation", "Add New Table (Admin)"]
-        )
+        
+        # 3 Clean tabs keeping your preferred explicit labels
+        t1, t2, t3 = st.tabs(["Table Status", "Book a Table", "Reservation Details"])
 
+        # TAB 1: VIEW CURRENT SLOTS STATUS
         with t1:
             df_tables = pd.read_sql(
                 "SELECT table_number, status, capacity FROM tables", conn
             )
             st.dataframe(df_tables, use_container_width=True)
 
+        # TAB 2: SMART CREATION WITH AUTO-CUSTOMER LOOKUP
         with t2:
             st.info(
                 "Note: Type Phone Number to search for existing customers or create a new one."
@@ -357,10 +359,10 @@ else:
                     else:
                         tx_cursor = conn.cursor(dictionary=True)
                         try:
-                            # Disable autocommit to safely start a managed transaction blocks
+                            # Disable autocommit to safely isolate managed transaction blocks
                             conn.autocommit = False
 
-                            # 1. Search for customer by Phone
+                            # 1. Search for customer profile by Phone
                             tx_cursor.execute(
                                 "SELECT customer_id, name FROM customers WHERE phone = %s",
                                 (r_phone,),
@@ -369,43 +371,35 @@ else:
 
                             if existing_cust:
                                 final_cust_id = existing_cust["customer_id"]
-                                st.success(
-                                    f"Found returning customer: {existing_cust['name']}"
-                                )
+                                st.success(f"Found returning customer: {existing_cust['name']}")
                             else:
                                 if not r_name:
-                                    st.warning(
-                                        "New phone number detected! Please enter the Customer Name to create a profile."
-                                    )
+                                    st.warning("New phone number detected! Please enter the Customer Name to create a profile.")
                                     st.stop()
                                 
-                                # 2. Create new customer profile
+                                # 2. Create new missing customer data split
                                 tx_cursor.execute(
                                     "INSERT INTO customers (name, phone) VALUES (%s, %s)",
                                     (r_name, r_phone),
                                 )
                                 final_cust_id = tx_cursor.lastrowid
-                                st.success(
-                                    f"New customer profile created for '{r_name}'"
-                                )
+                                st.success(f"New customer profile created for '{r_name}'")
 
-                            # 3. Create reservation entry
+                            # 3. Create reservation baseline record entry
                             tx_cursor.execute(
                                 "INSERT INTO reservations (customer_id, reservation_time, guest_count) VALUES (%s, %s, %s)",
                                 (final_cust_id, datetime.now(), guests),
                             )
                             new_res_id = tx_cursor.lastrowid
 
-                            # 4. Save reservation table details
+                            # 4. Save intersection key indices relation link mappings
                             tx_cursor.execute(
                                 "INSERT INTO reservation_detail (reservation_id, table_id) VALUES (%s, %s)",
                                 (new_res_id, selected_table["table_id"]),
                             )
                             
                             conn.commit()
-                            st.success(
-                                f"Table {selected_table['table_number']} booked successfully for {guests} guests!"
-                            )
+                            st.success(f"Table {selected_table['table_number']} booked successfully for {guests} guests!")
                             st.rerun()
                             
                         except Exception as err:
@@ -413,45 +407,65 @@ else:
                             st.error(f"Transaction failed: {err}")
                         finally:
                             tx_cursor.close()
-                            # Restore default connection auto-commit state safely
                             conn.autocommit = True
             else:
                 st.warning("No tables are currently available.")
 
+        # TAB 3: MERGED INTERACTIVE LIVE LOGVIEW & RECORD DELETION
         with t3:
-            if st.session_state.user_role == "admin":
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT MAX(table_number) AS max_num FROM tables")
-                result = cursor.fetchone()
-                next_table_num = (result['max_num'] + 1) if result['max_num'] else 1
-                
-                st.info(f"The system detected that the next available Table Number is: **{next_table_num}**")
-                
-                with st.form("add_table_form"):
-                    new_table_no = st.number_input(
-                        "New Table Number (Auto-generated)", value=next_table_num, disabled=True
-                    )
-                    new_capacity = st.number_input(
-                        "Seating Capacity", min_value=1, step=1, value=4
-                    )
-                    
-                    if st.form_submit_button("Add Table"):
-                        try:
-                            cursor.execute(
-                                "INSERT INTO tables (table_number, status, capacity) VALUES (%s, 'Available', %s)",
-                                (new_table_no, new_capacity),
-                            )
-                            conn.commit()
-                            st.success(
-                                f"Table #{new_table_no} added successfully!"
-                            )
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-            else:
-                st.warning(
-                    "Only Admin accounts have permission to add new tables."
-                )
+            st.subheader("Reservation Details")
+            
+            # 1. Fetch live contextual grid reports
+            query_reservations = """
+                SELECT 
+                    r.reservation_id AS 'Res ID',
+                    t.table_number AS 'Table No.', 
+                    c.name AS 'Customer Name', 
+                    c.phone AS 'Phone Number', 
+                    r.reservation_time AS 'Time', 
+                    r.guest_count AS 'Guests'
+                FROM reservations r
+                JOIN customers c ON r.customer_id = c.customer_id
+                JOIN reservation_detail rd ON r.reservation_id = rd.reservation_id
+                JOIN tables t ON rd.table_id = t.table_id
+                ORDER BY r.reservation_time DESC
+            """
+            df_reservations = pd.read_sql(query_reservations, conn)
+            st.dataframe(df_reservations, use_container_width=True)
 
+            st.markdown("---") # Visual layout separation bar
+            
+            # 2. Cancel function entry processing area
+            st.subheader("Cancel a Reservation")
+            cancel_res_id = st.number_input("Enter Res ID to Cancel (from the table above)", min_value=1, step=1, key="res_cancel_input_field")
+            
+            if st.button("Cancel Booking", type="primary"):
+                cancel_cursor = conn.cursor()
+                try:
+                    conn.autocommit = False
+                    
+                    # Track which table records are bound before dumping entity instances
+                    cancel_cursor.execute("SELECT table_id FROM reservation_detail WHERE reservation_id = %s", (cancel_res_id,))
+                    tables_to_free = cancel_cursor.fetchall()
+                    
+                    # Update back state definitions to clear occupied locks out
+                    for tb in tables_to_free:
+                        cancel_cursor.execute("UPDATE tables SET status = 'Available' WHERE table_id = %s", (tb[0],))
+                    
+                    # Structural removal (Removes child relation records safely via your CASCADE rules or manual triggers)
+                    cancel_cursor.execute("DELETE FROM reservation_detail WHERE reservation_id = %s", (cancel_res_id,))
+                    cancel_cursor.execute("DELETE FROM reservations WHERE reservation_id = %s", (cancel_res_id,))
+                    
+                    conn.commit()
+                    st.success(f"Reservation #{cancel_res_id} has been canceled. Tables are now Available!")
+                    st.rerun()
+                    
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"Error canceling reservation: {e}")
+                finally:
+                    cancel_cursor.close()
+                    conn.autocommit = True
     # ==========================================
     # 3. MODULE: MENU MANAGEMENT
     # ==========================================
