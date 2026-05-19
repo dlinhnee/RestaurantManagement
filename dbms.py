@@ -466,7 +466,7 @@ else:
                 finally:
                     cancel_cursor.close()
                     conn.autocommit = True
-    # ==========================================
+ # ==========================================
     # 3. MODULE: MENU MANAGEMENT
     # ==========================================
     elif choice == "Menu Management":
@@ -490,7 +490,7 @@ else:
                 with st.form("add_dish_form"):
                     dish_name = st.text_input("Dish Name")
                     price = st.number_input(
-                        "Price (VND)", min_value=0, step=1000, format="%d"
+                        "Price (VND)", min_value=0, step=1000, value=25000, format="%d"
                     )
                     cat_id = st.number_input("Category ID", min_value=1, step=1)
 
@@ -499,14 +499,17 @@ else:
                         try:
                             cursor.execute(
                                 "INSERT INTO menu_items (dish_name, price, category_id) VALUES (%s, %s, %s)",
-                                (dish_name, price (VND), cat_id),
+                                (dish_name, price, cat_id),
                             )
                             conn.commit()
                             st.success(
                                 "New dish added to the menu successfully!"
                             )
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
+                        finally:
+                            cursor.close()
             else:
                 st.warning(
                     "Only Admin accounts have permission to add new menu items."
@@ -526,7 +529,6 @@ else:
                     selected_dish = dish_options[selected_dish_label]
                     e_dish_id = selected_dish['dish_id']
                     
-                    # 3. Form cập nhật thông tin
                     with st.form("edit_dish_form"):
                         e_price = st.number_input(
                             "New Price (VND)", 
@@ -538,7 +540,7 @@ else:
 
                         e_avail = st.selectbox(
                             "Status",
-                            options=[1],
+                            options=[1, 0],
                             index=0 if selected_dish['is_available'] == 1 else 1,
                             format_func=lambda x: "Available" if x == 1 else "Out of Stock"
                         )
@@ -552,15 +554,19 @@ else:
                                 )
                                 conn.commit()
                                 st.success(f"Dish '{selected_dish['dish_name']}' updated successfully!")
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
+                            finally:
+                                update_cursor.close()
                 else:
                     st.info("No dishes found in the database. Please add a dish first.")
+                
+                cursor.close()
             else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
                 )
-
     # ==========================================
     # 4. MODULE: BILLING & INVOICES
     # ==========================================
