@@ -679,14 +679,6 @@ else:
             if customer_id:
                 st.caption(f"(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)")
 
-            # 4. CHECKOUT & UPDATE DATABASE
-            if st.button("Generate Invoice & Checkout", type="primary"):
-                try:
-                    # Chốt giao dịch ngầm của các lệnh SELECT (bao gồm cả lệnh SELECT UDF ở trên)
-                    conn.commit() 
-                    
-                    # Start transaction for ACID compliance
-                    conn.start_transaction()
             
     # 4. CHECKOUT & UPDATE DATABASE
             # ĐƯA NÚT BẤM RA NGOÀI TRƯỚC
