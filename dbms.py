@@ -30,7 +30,7 @@ def check_password(password, hashed):
 
 
 
-# --- THÊM ĐOẠN NÀY VÀO ĐÂY (KHOẢNG DÒNG 27) ---
+# --- 
 def change_password_db(username, old_password, new_password):
     """Hàm kiểm tra mật khẩu cũ và cập nhật mật khẩu mới"""
     conn = get_db_connection()
@@ -60,15 +60,15 @@ def change_password_db(username, old_password, new_password):
     return False, "Database connection failed."
 
 
-def self_reset_password_db(username, phone):
-    """Allows staff to self-reset password to '123456' using Username and Phone"""
+def self_reset_password_db(username):
+    """Allows staff to self-reset password to '123456' using Username only"""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor(dictionary=True)
         try:
             cursor.execute(
-                "SELECT employee_id FROM employees WHERE username = %s AND phone = %s", 
-                (username, phone)
+                "SELECT employee_id FROM employees WHERE username = %s", 
+                (username,)
             )
             emp = cursor.fetchone()
             
@@ -81,7 +81,7 @@ def self_reset_password_db(username, phone):
                 conn.commit()
                 return True, "Password has been successfully reset to default '123456'!"
             else:
-                return False, "Invalid Username or Phone Number match."
+                return False, "Username does not exist."
         except Exception as e:
             return False, f"Database error: {e}"
         finally:
@@ -131,20 +131,18 @@ if not st.session_state.logged_in:
         st.info("Enter your registered Username to reset your password back to default.")
         
         with st.form("forgot_password_form"):
-            reset_username = st.text_input("Your Username")
-            
-            submit_reset = st.form_submit_button("Recover Password", type="primary")
-            
-            if submit_reset:
-                if not reset_username:
-                    st.error("Please fill in Username fields.")
-                else:
-                    success, message = self_reset_password_db(reset_username)
-                    if success:
-                        st.success(message)
-                        st.info("Switch back to the 'Staff Login' tab and log in using **123456**.")
-                    else:
-                        st.error(message)
+            reset_username = st.text_input("Enter Username to Reset")
+
+if st.button("Reset Password to Default"):
+    if not reset_username:
+        st.warning("Please enter your Username!")
+    else:
+        success, message = self_reset_password_db(reset_username)
+        
+        if success:
+            st.success(message)
+        else:
+            st.error(message)
                         
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
