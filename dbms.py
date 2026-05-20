@@ -655,37 +655,38 @@ else:
             st.markdown("---")
             order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
           
-            # 1. CALCULATE ORIGINAL SUBTOTAL BEFORE DISCOUNT
-            original_total = sum(item['price'] * item['quantity'] for item in order_items)
-            st.write(f"**Subtotal:** {int(original_total):,} VND")
-
-            # 2. LOYALTY POINT REDEMPTION LOGIC
-            points_to_redeem = 0
-            discount_amount = 0
-            current_points = cust_info['points'] if cust_info else 0
-
-            if customer_id and current_points > 0:
-                max_points_allowed = min(current_points, int(original_total / 100))
-                
-                points_to_redeem = st.number_input(
-                    f"Enter points to redeem (Max: {max_points_allowed} pts, Available: {current_points} pts)", 
-                    min_value=0, 
-                    max_value=max_points_allowed, 
-                    step=1
-                )
-                discount_amount = points_to_redeem * 100
-
-            # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
+          # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
-            earned_points = int(final_total // 1000) 
+            
+            # --- GỌI HÀM UDF TỪ DATABASE ĐỂ TÍNH ĐIỂM ---
+            earned_points = 0
+            if customer_id:
+                # Dùng AS earned để dễ dàng lấy kết quả từ CSDL
+                cursor.execute("SELECT CalculateLoyaltyPoints(%s) AS earned", (final_total,))
+                udf_result = cursor.fetchone()
+                
+                # Trích xuất giá trị trả về (xử lý an toàn cho cả dạng dict và tuple)
+                if type(udf_result) is dict:
+                    earned_points = int(udf_result.get('earned', 0)) if udf_result.get('earned') else 0
+                else:
+                    earned_points = int(udf_result) if udf_result else 0
+            # ---------------------------------------------
 
             if points_to_redeem > 0:
-                st.write(f"**Discount (Redeemed Points):** - {int(discount_amount):,} VND")
+                st.write(f"*Discount (Redeemed Points):* - {int(discount_amount):,} VND")
             
-            st.markdown(f"### **Grand Total:** {int(final_total):,} VND")
+            st.markdown(f"### *Grand Total:* {int(final_total):,} VND")
             if customer_id:
-                st.caption(f"*(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)*")
+                st.caption(f"(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)")
 
+            # 4. CHECKOUT & UPDATE DATABASE
+            if st.button("Generate Invoice & Checkout", type="primary"):
+                try:
+                    # Chốt giao dịch ngầm của các lệnh SELECT (bao gồm cả lệnh SELECT UDF ở trên)
+                    conn.commit() 
+                    
+                    # Start transaction for ACID compliance
+                    conn.start_transaction()
             # 4. CHECKOUT & UPDATE DATABASE
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try:
