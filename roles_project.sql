@@ -1,3 +1,4 @@
+
 -- 1. KHỞI TẠO DATABASE
 DROP DATABASE IF EXISTS RestaurantManagement;
 CREATE DATABASE RestaurantManagement;
@@ -187,11 +188,7 @@ INSERT INTO invoice_details (invoice_id, dish_id, quantity, unit_price, line_sub
 
 -- 4. TRIGGER & PROCEDURE
 USE RestaurantManagement;
-
--- BƯỚC 1: Xóa trigger cũ trên bảng reservations (nếu nó đang tồn tại lỗi)
 DROP TRIGGER IF EXISTS after_reservation_insert;
-
--- BƯỚC 2: Tạo trigger MỚI trên bảng đúng là 'reservation_detail'
 DELIMITER //
 
 CREATE TRIGGER after_reservation_table_insert
@@ -202,8 +199,19 @@ BEGIN
     UPDATE tables 
     SET status = 'Reserved' 
     WHERE table_id = NEW.table_id;
-END //
+    
+DROP FUNCTION IF EXISTS CalculateLoyaltyPoints;
 
+DELIMITER //
+CREATE FUNCTION CalculateLoyaltyPoints(total_amount DECIMAL(10,2))
+RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE points INT;
+    SET points = FLOOR(total_amount / 1000); 
+    RETURN points;
+END //
+DELIMITER ;
 DELIMITER ;
 
 CREATE VIEW View_TopSellingDishes AS
@@ -226,8 +234,3 @@ CREATE INDEX idx_dish_name ON menu_items(dish_name);
 CREATE INDEX idx_reservation_time ON reservations(reservation_time);
 
 
-DELETE FROM menu_items WHERE dish_id = 12;
-DELETE FROM menu_items WHERE dish_id = 11;
-DELETE FROM customers WHERE customer_id = 12;
-DELETE FROM invoices WHERE invoice_id = 12;
-COMMIT;
