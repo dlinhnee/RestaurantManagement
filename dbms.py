@@ -30,17 +30,14 @@ def check_password(password, hashed):
 
 
 def change_password_db(username, old_password, new_password):
-    """Hàm kiểm tra mật khẩu cũ và cập nhật mật khẩu mới"""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor(dictionary=True)
         try:
-            # 1. Kiểm tra mật khẩu cũ
             cursor.execute("SELECT password FROM employees WHERE username = %s", (username,))
             user = cursor.fetchone()
             
             if user and check_password(old_password, user["password"]):
-                # 2. Mã hóa mật khẩu mới và update
                 new_password_hash = hash_password(new_password)
                 cursor.execute(
                     "UPDATE employees SET password = %s WHERE username = %s",
@@ -145,7 +142,6 @@ if not st.session_state.logged_in:
                         
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
-    # Sidebar
     st.sidebar.title(f"Role: {st.session_state.user_role.upper()}")
 
     if st.sidebar.button("Logout"):
@@ -178,13 +174,12 @@ else:
             cp_username = st.text_input("Confirm Your Username")
             cp_old = st.text_input("Old Password", type="password")
             cp_new = st.text_input("New Password", type="password")
-            # THÊM Ô NHẬP XÁC NHẬN MẬT KHẨU MỚI
             cp_confirm = st.text_input("Confirm New Password", type="password")
             
             if st.form_submit_button("Update Password"):
                 if not cp_username or not cp_old or not cp_new or not cp_confirm:
                     st.warning("All fields are required!")
-                # KIỂM TRA XEM MẬT KHẨU MỚI VÀ XÁC NHẬN CÓ TRÙNG NHAU KHÔNG
+                
                 elif cp_new != cp_confirm:
                     st.error("New password and confirm password do not match!")
                 else:
@@ -211,7 +206,7 @@ else:
             )
             st.dataframe(df_customers, use_container_width=True)
 
-        # TAB 2: THÊM KHÁCH HÀNG MỚI
+        # TAB 2: THÊM KHÁCH HÀNG 
         with t2:
             st.subheader("Add New Customer")
             with st.form("add_customer_form"):
@@ -239,7 +234,7 @@ else:
                             "Please enter both Customer Name and Phone Number!"
                         )
 
-        # TAB 3: TÌM KIẾM BẰNG SĐT VÀ CẬP NHẬT TOÀN DIỆN
+        # TAB 3: TÌM KIẾM BẰNG SĐT
         with t3:
             st.subheader("Search & Update Customer Profile")
             search_phone = st.text_input(
@@ -342,7 +337,7 @@ else:
             )
             st.dataframe(df_tables, use_container_width=True)
 
-        # TAB 2: SMART CREATION WITH AUTO-CUSTOMER LOOKUP
+        # TAB 2: CREATION WITH AUTO-CUSTOMER LOOKUP
         with t2:
             st.info(
                 "Note: Type Phone Number to search for existing customers or create a new one."
