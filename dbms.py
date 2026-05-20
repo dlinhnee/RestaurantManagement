@@ -29,8 +29,6 @@ def check_password(password, hashed):
     return hash_password(password) == hashed
 
 
-
-# --- 
 def change_password_db(username, old_password, new_password):
     """Hàm kiểm tra mật khẩu cũ và cập nhật mật khẩu mới"""
     conn = get_db_connection()
@@ -132,17 +130,18 @@ if not st.session_state.logged_in:
         
         with st.form("forgot_password_form"):
             reset_username = st.text_input("Enter Username to Reset")
-
-if st.button("Reset Password to Default"):
-    if not reset_username:
-        st.warning("Please enter your Username!")
-    else:
-        success, message = self_reset_password_db(reset_username)
-        
-        if success:
-            st.success(message)
-        else:
-            st.error(message)
+            submit_reset = st.form_submit_button("Reset Password to Default")
+            
+            if submit_reset:
+                if not reset_username:
+                    st.warning("Please enter your Username!")
+                else:
+                    success, message = self_reset_password_db(reset_username)
+                    
+                    if success:
+                        st.success(message)
+                    else:
+                        st.error(message)
                         
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
@@ -171,9 +170,29 @@ else:
     conn = get_db_connection()
 
     # ==========================================
+    # MODULE: CHANGE PASSWORD
+    # ==========================================
+    if choice == "Change Password":
+        st.header("🔒 Change Password")
+        with st.form("change_password_form"):
+            cp_username = st.text_input("Confirm Your Username")
+            cp_old = st.text_input("Old Password", type="password")
+            cp_new = st.text_input("New Password", type="password")
+            
+            if st.form_submit_button("Update Password"):
+                if not cp_username or not cp_old or not cp_new:
+                    st.warning("All fields are required!")
+                else:
+                    success, msg = change_password_db(cp_username, cp_old, cp_new)
+                    if success:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+
+    # ==========================================
     # MODULE 1: CUSTOMER MANAGEMENT
     # ==========================================
-    if choice == "Customer Management":
+    elif choice == "Customer Management":
         st.header("Customer Management")
         t1, t2, t3 = st.tabs(
             ["Customer List", "Add New Customer", "Search & Update Customer"]
@@ -304,13 +323,11 @@ else:
                 else:
                     st.warning("No customer found with this phone number.")
 
-# ==========================================
+    # ==========================================
     # 2. MODULE: TABLES & RESERVATIONS
     # ==========================================
     elif choice == "Tables & Reservations":
         st.header("Table & Reservation Management")
-        
-        # 3 Clean tabs keeping your preferred explicit labels
         t1, t2, t3 = st.tabs(["Table Status", "Book a Table", "Reservation Details"])
 
         # TAB 1: VIEW CURRENT SLOTS STATUS
@@ -357,7 +374,6 @@ else:
                     else:
                         tx_cursor = conn.cursor(dictionary=True)
                         try:
-                            # Disable autocommit to safely isolate managed transaction blocks
                             conn.autocommit = False
 
                             # 1. Search for customer profile by Phone
@@ -431,7 +447,7 @@ else:
             df_reservations = pd.read_sql(query_reservations, conn)
             st.dataframe(df_reservations, use_container_width=True)
 
-            st.markdown("---") # Visual layout separation bar
+            st.markdown("---") 
             
             # 2. Cancel function entry processing area
             st.subheader("Cancel a Reservation")
@@ -450,7 +466,7 @@ else:
                     for tb in tables_to_free:
                         cancel_cursor.execute("UPDATE tables SET status = 'Available' WHERE table_id = %s", (tb[0],))
                     
-                    # Structural removal (Removes child relation records safely via your CASCADE rules or manual triggers)
+                    # Structural removal
                     cancel_cursor.execute("DELETE FROM reservation_detail WHERE reservation_id = %s", (cancel_res_id,))
                     cancel_cursor.execute("DELETE FROM reservations WHERE reservation_id = %s", (cancel_res_id,))
                     
@@ -464,7 +480,8 @@ else:
                 finally:
                     cancel_cursor.close()
                     conn.autocommit = True
- # ==========================================
+
+    # ==========================================
     # 3. MODULE: MENU MANAGEMENT
     # ==========================================
     elif choice == "Menu Management":
@@ -565,6 +582,7 @@ else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
                 )
+
     # ==========================================
     # 4. MODULE: BILLING & INVOICES
     # ==========================================
@@ -590,6 +608,7 @@ else:
             cust_phone = st.text_input("Enter Customer Phone Number (Press Enter to search):")
             
             customer_id = None
+            cust_info = None
             if cust_phone:
                 cursor.execute("SELECT customer_id, name, points, tier FROM customers WHERE phone = %s", (cust_phone,))
                 cust_info = cursor.fetchone()
@@ -608,7 +627,6 @@ else:
             menu_items = cursor.fetchall()
             menu_options = {f"{item['dish_name']} - {int(item['price']):,} VND": item for item in menu_items}
 
-            # lưu số lượng (món) đang được order, khởi tạo là 1
             if 'item_count' not in st.session_state:
                 st.session_state.item_count = 1
 
@@ -632,7 +650,6 @@ else:
                     "quantity": qty
                 })
             
-            # Add dish (add_dish_row)
             st.button("Add Another Dish", on_click=add_dish_row)
             
             st.markdown("---")
@@ -645,10 +662,9 @@ else:
             # 2. LOYALTY POINT REDEMPTION LOGIC
             points_to_redeem = 0
             discount_amount = 0
-            current_points = cust_info['points'] if customer_id else 0
+            current_points = cust_info['points'] if cust_info else 0
 
             if customer_id and current_points > 0:
-                # Calculate max points allowed (1 point = 100 VND, cannot exceed subtotal)
                 max_points_allowed = min(current_points, int(original_total / 100))
                 
                 points_to_redeem = st.number_input(
@@ -657,12 +673,10 @@ else:
                     max_value=max_points_allowed, 
                     step=1
                 )
-                # 1 point = 100 VND discount
                 discount_amount = points_to_redeem * 100
 
             # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
-            # 1000 VND spent = 1 point earned (Calculated on final paid amount)
             earned_points = int(final_total // 1000) 
 
             if points_to_redeem > 0:
@@ -675,11 +689,10 @@ else:
             # 4. CHECKOUT & UPDATE DATABASE
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try:
-                    conn.commit() 
-                    # Start transaction for ACID compliance
+                    cursor = conn.cursor()
                     conn.start_transaction() 
                     
-                    # A. Insert into Invoices table with final_total
+                    # A. Insert into Invoices table
                     cursor.execute("""
                         INSERT INTO invoices (customer_id, total_amount, payment_date, order_type, delivery_status) 
                         VALUES (%s, %s, %s, %s, 'Delivered')
@@ -695,7 +708,7 @@ else:
                             VALUES (%s, %s, %s, %s, %s)
                         """, (new_invoice_id, item['dish_id'], item['quantity'], item['price'], line_subtotal))
                     
-                    # C. Update Customer Points in Database
+                    # C. Update Customer Points
                     if customer_id:
                         cursor.execute("""
                             UPDATE customers 
@@ -703,27 +716,25 @@ else:
                             WHERE customer_id = %s
                         """, (points_to_redeem, earned_points, customer_id))
                     
-                    # Commit transaction
                     conn.commit()
-                    
-                    # Reset UI
                     st.session_state.item_count = 1
-                    
-                    st.success(f"Invoice #{new_invoice_id} created successfully! Points updated. Grand Total: **{int(final_total):,} VND**")
+                    st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(final_total):,} VND**")
+                    st.rerun()
                     
                 except Exception as e:
                     conn.rollback()
                     st.error(f"Error creating invoice: {e}")
+                finally:
+                    cursor.close()
 
-
+    # ==========================================
     # 5. MODULE: ADMIN REPORTS
+    # ==========================================
     elif choice == "Admin Reports":
         st.header("Admin Dashboard & Reports")
 
         if st.session_state.user_role != "admin":
-            st.error(
-                "Access Denied. You do not have permission to view this page."
-            )
+            st.error("Access Denied. You do not have permission to view this page.")
         else:
             t1, t2 = st.tabs(["Daily Revenue & Visits", "Top Selling Dishes"])
 
@@ -732,96 +743,20 @@ else:
                 rev_query = """
                     SELECT DATE(payment_date) AS Date, SUM(total_amount) AS Daily_Revenue, COUNT(invoice_id) AS Daily_Visits
                     FROM invoices
-                    WHERE payment_date IS NOT NULL
                     GROUP BY DATE(payment_date)
-                    ORDER BY Date
+                    ORDER BY Date DESC
                 """
                 df_rev = pd.read_sql(rev_query, conn)
-
-                if not df_rev.empty:
-                    df_rev["Date"] = pd.to_datetime(df_rev["Date"]).dt.date
-
-                    total_rev = int(df_rev["Daily_Revenue"].sum())
-                    total_visits = int(df_rev["Daily_Visits"].sum())
-
-                    col1, col2 = st.columns(2)
-                    col1.metric("Total Revenue", f"{total_rev:,} VND")
-                    col2.metric("Total Customer Visits", f"{total_visits} Invoices")
-
-                    st.markdown("---")
-                    st.markdown("**Daily Revenue Trend (VND)**")
-                    st.line_chart(df_rev.set_index("Date")["Daily_Revenue"])
-
-                    st.markdown("**Daily Customer Visits**")
-                    st.bar_chart(df_rev.set_index("Date")["Daily_Visits"])
-                else:
-                    st.info("No revenue data available yet.")
+                st.dataframe(df_rev, use_container_width=True)
 
             with t2:
-                st.subheader("Top 5 Best-Selling Dishes")
-                st.info(
-                    "Data is fetched dynamically from the Database View: 'View_TopSellingDishes'"
-                )
-
-                df_top = pd.read_sql(
-                    "SELECT * FROM View_TopSellingDishes LIMIT 5", conn
-                )
-
-                if not df_top.empty:
-                    df_top.rename(
-                        columns={
-                            "dish_name": "Dish Name",
-                            "total_sold": "Quantity Sold",
-                        },
-                        inplace=True,
-                    )
-
-                    colA, colB = st.columns([5, 6])
-                    with colA:
-                        st.dataframe(
-                            df_top, use_container_width=True, hide_index=True
-                        )
-                    with colB:
-                        st.bar_chart(df_top.set_index("Dish Name")["Quantity Sold"])
-                else:
-                    st.info("No sales data available yet.")
-
-    # ==========================================
-    # MODULE: CHANGE PASSWORD (THÊM VÀO KHOẢNG DÒNG 342)
-    # ==========================================
-    elif choice == "Change Password":
-        st.header("Change Your Password")
-        st.caption("For security purposes, please do not share your password with anyone.")
-        
-        with st.form("change_password_form", clear_on_submit=True):
-            old_pass = st.text_input("Old Password", type="password")
-            new_pass = st.text_input("New Password", type="password")
-            confirm_pass = st.text_input("Confirm New Password", type="password")
-            
-            submit_btn = st.form_submit_button("Update Password", type="primary")
-            
-            if submit_btn:
-                if not old_pass or not new_pass or not confirm_pass:
-                    st.error("Please fill in all fields.")
-                elif new_pass == old_pass:
-                    st.warning("New password cannot be the same as the old password.")
-                elif new_pass != confirm_pass:
-                    st.error("New password and Confirm password do not match.")
-                elif len(new_pass) < 6:
-                    st.warning("New password should be at least 6 characters long.")
-                else:
-                    current_user = st.session_state.get("login_user")
-                    success, message = change_password_db(current_user, old_pass, new_pass)
-                    if success:
-                        st.success(message)
-                        st.balloons()
-                    else:
-                        st.error(message)
-
-    if conn:
-        conn.close()
-
-    if conn:
-        conn.close()
-
-
+                st.subheader("Top Selling Dishes")
+                top_query = """
+                    SELECT m.dish_name AS `Dish Name`, SUM(id.quantity) AS `Total Qty Sold`
+                    FROM invoice_details id
+                    JOIN menu_items m ON id.dish_id = m.dish_id
+                    GROUP BY m.dish_id, m.dish_name
+                    ORDER BY `Total Qty Sold` DESC
+                """
+                df_top = pd.read_sql(top_query, conn)
+                st.dataframe(df_top, use_container_width=True)
