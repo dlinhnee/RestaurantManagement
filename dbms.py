@@ -20,6 +20,7 @@ def get_db_connection():
         st.error(f"Connection Error: {e}")
         return None
 
+
 # --- 2. SECURITY & AUTHENTICATION ---
 def hash_password(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -27,7 +28,6 @@ def hash_password(password):
 
 def check_password(password, hashed):
     return hash_password(password) == hashed
-
 
 def change_password_db(username, old_password, new_password):
     conn = get_db_connection()
@@ -53,7 +53,6 @@ def change_password_db(username, old_password, new_password):
             cursor.close()
             conn.close()
     return False, "Database connection failed."
-
 
 def self_reset_password_db(username):
     """Allows staff to self-reset password to '123456' using Username only"""
@@ -92,7 +91,8 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_role" not in st.session_state:
     st.session_state.user_role = None
-    
+
+
 # --- 4. LOGIN TABS ---
 if not st.session_state.logged_in:
     tab_login, tab_forgot = st.tabs(["Staff Login", "Forgot Password"])
@@ -139,7 +139,8 @@ if not st.session_state.logged_in:
                         st.success(message)
                     else:
                         st.error(message)
-                        
+
+
 # --- 5. MAIN APPLICATION CONTENT ---
 else:
     st.sidebar.title(f"Role: {st.session_state.user_role.upper()}")
@@ -148,9 +149,7 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
-    # ==========================================
     # NAVIGATION MENU
-    # ==========================================
     menu = [
         "Change Password",
         "Tables & Reservations",
@@ -165,9 +164,8 @@ else:
     choice = st.sidebar.radio("Navigation", menu)
     conn = get_db_connection()
 
-    # ==========================================
+    
     # MODULE 1: CHANGE PASSWORD
-    # ==========================================
     if choice == "Change Password":
         st.header("Change Password")
         with st.form("change_password_form"):
@@ -189,16 +187,15 @@ else:
                     else:
                         st.error(msg)
 
-    # ==========================================
+    
     # MODULE 2: CUSTOMER MANAGEMENT
-    # ==========================================
     elif choice == "Customer Management":
         st.header("Customer Management")
         t1, t2, t3 = st.tabs(
             ["Customer List", "Add New Customer", "Search & Update Customer"]
         )
 
-        # TAB 1: HIỂN THỊ DANH SÁCH
+        # Customers list
         with t1:
             df_customers = pd.read_sql(
                 "SELECT customer_id, name, phone, email, address, tier, points, join_date FROM customers ORDER BY points DESC",
@@ -206,7 +203,7 @@ else:
             )
             st.dataframe(df_customers, use_container_width=True)
 
-        # TAB 2: THÊM KHÁCH HÀNG 
+        # Add new customer 
         with t2:
             st.subheader("Add New Customer")
             with st.form("add_customer_form"):
@@ -234,7 +231,7 @@ else:
                             "Please enter both Customer Name and Phone Number!"
                         )
 
-        # TAB 3: TÌM KIẾM BẰNG SĐT
+        # Search with phone number
         with t3:
             st.subheader("Search & Update Customer Profile")
             search_phone = st.text_input(
@@ -251,7 +248,6 @@ else:
                 if customer:
                     st.success(f"Found Customer: **{customer['name']}**")
 
-                    # Form cập nhật dữ liệu cũ
                     with st.form("update_customer_form"):
                         st.markdown("**Update Information & Points**")
                         u_name = st.text_input(
@@ -323,21 +319,20 @@ else:
                 else:
                     st.warning("No customer found with this phone number.")
 
-    # ==========================================
+    
     #  MODULE 3: TABLES & RESERVATIONS
-    # ==========================================
     elif choice == "Tables & Reservations":
         st.header("Table & Reservation Management")
         t1, t2, t3 = st.tabs(["Table Status", "Book a Table", "Reservation Details"])
 
-        # TAB 1: VIEW CURRENT SLOTS STATUS
+        # View current slots status
         with t1:
             df_tables = pd.read_sql(
                 "SELECT table_number, status, capacity FROM tables", conn
             )
             st.dataframe(df_tables, use_container_width=True)
 
-        # TAB 2: CREATION WITH AUTO-CUSTOMER LOOKUP
+        # Auto customer lookup
         with t2:
             st.info(
                 "Note: Type Phone Number to search for existing customers or create a new one."
@@ -376,7 +371,7 @@ else:
                         try:
                             conn.autocommit = False
 
-                            # 1. Search for customer profile by Phone
+                            # Search for customer profile by Phone
                             tx_cursor.execute(
                                 "SELECT customer_id, name FROM customers WHERE phone = %s",
                                 (r_phone,),
@@ -391,7 +386,7 @@ else:
                                     st.warning("New phone number detected! Please enter the Customer Name to create a profile.")
                                     st.stop()
                                 
-                                # 2. Create new missing customer data split
+                                # Create new missing customer data split
                                 tx_cursor.execute(
                                     "INSERT INTO customers (name, phone) VALUES (%s, %s)",
                                     (r_name, r_phone),
@@ -399,14 +394,14 @@ else:
                                 final_cust_id = tx_cursor.lastrowid
                                 st.success(f"New customer profile created for '{r_name}'")
 
-                            # 3. Create reservation baseline record entry
+                            # Create reservation baseline record entry
                             tx_cursor.execute(
                                 "INSERT INTO reservations (customer_id, reservation_time, guest_count) VALUES (%s, %s, %s)",
                                 (final_cust_id, datetime.now(), guests),
                             )
                             new_res_id = tx_cursor.lastrowid
 
-                            # 4. Save intersection key indices relation link mappings
+                            # Save intersection key indices relation link mappings
                             tx_cursor.execute(
                                 "INSERT INTO reservation_detail (reservation_id, table_id) VALUES (%s, %s)",
                                 (new_res_id, selected_table["table_id"]),
@@ -425,11 +420,11 @@ else:
             else:
                 st.warning("No tables are currently available.")
 
-        # TAB 3: MERGED INTERACTIVE LIVE LOGVIEW & RECORD DELETION
+        # Merge interactive live logview and record deletion
         with t3:
             st.subheader("Reservation Details")
             
-            # 1. Fetch live contextual grid reports
+            # Fetch live contextual grid reports
             query_reservations = """
                 SELECT 
                     r.reservation_id AS 'Res ID',
@@ -449,7 +444,7 @@ else:
 
             st.markdown("---") 
             
-            # 2. Cancel function entry processing area
+            # Cancel function entry processing area
             st.subheader("Cancel a Reservation")
             cancel_res_id = st.number_input("Enter Res ID to Cancel (from the table above)", min_value=1, step=1, key="res_cancel_input_field")
             
@@ -481,9 +476,8 @@ else:
                     cancel_cursor.close()
                     conn.autocommit = True
 
-    # ==========================================
+    
     # MODULE 4: MENU MANAGEMENT
-    # ==========================================
     elif choice == "Menu Management":
         st.header("🍴Food & Beverage Menu")
         t1, t2, t3 = st.tabs(
@@ -582,9 +576,9 @@ else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
                 )
-    # ==========================================
+
+    
     # MODULE 5: BILLING & INVOICES
-    # ==========================================
     elif choice == "Billing & Invoices":
         st.header("🧾 Billing & Invoices")
         t1, t2 = st.tabs(["Invoice List", "Generate New Invoice (Checkout)"])
@@ -655,47 +649,42 @@ else:
             st.markdown("---")
             order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
           
-            # --- CALCULATE ORIGINAL TOTAL ---
+    
             original_total = sum(item['price'] * item['quantity'] for item in order_items)
             
-            # --- REDEEM POINTS LOGIC ---
             points_to_redeem = 0
             discount_amount = points_to_redeem * 100
             if customer_id and cust_info.get('points', 0) > 0:
                 max_points = int(cust_info['points'])
                 points_to_redeem = st.number_input("Points to Redeem", min_value=0, max_value=max_points, step=1)
-                # Note: Adjust the 1000 multiplier to match your actual VND-per-point conversion rate
                 discount_amount = points_to_redeem * 100 
 
-        #  CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
             final_total = max(final_total, 0) 
             
             earned_points = 0
             if customer_id:
-                # Truy vấn UDF từ database
+                # UDF from database
                 cursor.execute("SELECT CalculateLoyaltyPoints(%s) AS earned", (float(final_total),))
                 udf_result = cursor.fetchone()
                 
                 if udf_result:
                     if isinstance(udf_result, dict):
-                        # Nếu cursor cấu hình dictionary=True
                         earned_points = int(udf_result.get('earned', 0)) if udf_result.get('earned') else 0
                     elif isinstance(udf_result, (tuple, list)):
-                        # Nếu cursor trả về dạng tuple mặc định (ví dụ: (15,))
                         earned_points = int(udf_result[0]) if udf_result[0] else 0
             
             st.markdown(f"### *Grand Total:* {int(final_total):,} VND")
             if customer_id:
                 st.caption(f"(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)")
 
-            # 4. CHECKOUT & UPDATE DATABASE
+            # Checkout & update database
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try: 
                     cursor = conn.cursor()
                     conn.start_transaction() 
                     
-                    # A. Insert into Invoices table
+                    # Insert into Invoices table
                     # Make sure from datetime import datetime is at the top of your file
                     cursor.execute("""
                         INSERT INTO invoices (customer_id, total_amount, payment_date, order_type, delivery_status) 
@@ -704,7 +693,7 @@ else:
                     
                     new_invoice_id = cursor.lastrowid
                     
-                    # B. Insert into Invoice_Details table
+                    # Insert into Invoice_Details table
                     for item in order_items:
                         line_subtotal = item['price'] * item['quantity']
                         cursor.execute("""
@@ -712,7 +701,7 @@ else:
                             VALUES (%s, %s, %s, %s, %s)
                         """, (new_invoice_id, item['dish_id'], item['quantity'], item['price'], line_subtotal))
                     
-                    # C. Update Customer Points
+                    # Update Customer Points
                     if customer_id:
                         cursor.execute("""
                             UPDATE customers 
@@ -731,7 +720,7 @@ else:
                 finally:
                     cursor.close()
 
-    # ==========================================
+    
     #  MODULE 6: ADMIN REPORTS
     elif choice == "Admin Reports":
         st.header("Admin Dashboard & Reports")
