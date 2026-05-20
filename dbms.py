@@ -640,47 +640,47 @@ else:
             st.markdown("---")
             order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
           
-            # 1. TÍNH TỔNG TIỀN GỐC TRƯỚC KHI BẤM NÚT ĐỂ HIỂN THỊ LÊN UI
+            # 1. CALCULATE ORIGINAL SUBTOTAL BEFORE DISCOUNT
             original_total = sum(item['price'] * item['quantity'] for item in order_items)
-            st.write(f"**Subtotal (Tổng tiền gốc):** {int(original_total):,} VND")
+            st.write(f"**Subtotal:** {int(original_total):,} VND")
 
-            # 2. XỬ LÝ LOGIC ĐỔI ĐIỂM (Chỉ hiện nếu là khách thành viên và có điểm)
+            # 2. LOYALTY POINT REDEMPTION LOGIC
             points_to_redeem = 0
             discount_amount = 0
             current_points = cust_info['points'] if customer_id else 0
 
             if customer_id and current_points > 0:
-                # Tính số điểm tối đa có thể đổi (không được trừ âm tiền hóa đơn)
+                # Calculate max points allowed (1 point = 100 VND, cannot exceed subtotal)
                 max_points_allowed = min(current_points, int(original_total / 100))
                 
                 points_to_redeem = st.number_input(
-                    f"Nhập số điểm muốn đổi (Tối đa {max_points_allowed} điểm, đang có {current_points})", 
+                    f"Enter points to redeem (Max: {max_points_allowed} pts, Available: {current_points} pts)", 
                     min_value=0, 
                     max_value=max_points_allowed, 
                     step=1
                 )
-                # 1 điểm đổi được 100 đồng
+                # 1 point = 100 VND discount
                 discount_amount = points_to_redeem * 100
 
-            # 3. TÍNH TOÁN TIỀN CUỐI CÙNG VÀ ĐIỂM TÍCH LŨY MỚI
+            # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
-            # 1000 VNĐ tích được 1 điểm (Tính trên số tiền thực trả)
+            # 1000 VND spent = 1 point earned (Calculated on final paid amount)
             earned_points = int(final_total // 1000) 
 
             if points_to_redeem > 0:
-                st.write(f"**Discount (Giảm giá từ điểm):** - {int(discount_amount):,} VND")
+                st.write(f"**Discount (Redeemed Points):** - {int(discount_amount):,} VND")
             
-            st.markdown(f"### **Grand Total (Thanh toán):** {int(final_total):,} VND")
+            st.markdown(f"### **Grand Total:** {int(final_total):,} VND")
             if customer_id:
-                st.caption(f"*(Khách hàng sẽ bị trừ {points_to_redeem} điểm và tích thêm {earned_points} điểm từ hóa đơn này)*")
+                st.caption(f"*(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)*")
 
-            # 4. XỬ LÝ THANH TOÁN VÀ LƯU DATABASE
+            # 4. CHECKOUT & UPDATE DATABASE
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try:
-                    # Bắt đầu Transaction để đảm bảo an toàn dữ liệu
+                    # Start transaction for ACID compliance
                     conn.start_transaction() 
                     
-                    # A. Thêm vào bảng Invoices với số tiền đã giảm (final_total)
+                    # A. Insert into Invoices table with final_total
                     cursor.execute("""
                         INSERT INTO invoices (customer_id, total_amount, payment_date, order_type, delivery_status) 
                         VALUES (%s, %s, %s, %s, 'Delivered')
@@ -688,7 +688,7 @@ else:
                     
                     new_invoice_id = cursor.lastrowid
                     
-                    # B. Thêm vào bảng Invoice_Details
+                    # B. Insert into Invoice_Details table
                     for item in order_items:
                         line_subtotal = item['price'] * item['quantity']
                         cursor.execute("""
@@ -696,7 +696,7 @@ else:
                             VALUES (%s, %s, %s, %s, %s)
                         """, (new_invoice_id, item['dish_id'], item['quantity'], item['price'], line_subtotal))
                     
-                    # C. Cập nhật lại số điểm của khách hàng trong Database
+                    # C. Update Customer Points in Database
                     if customer_id:
                         cursor.execute("""
                             UPDATE customers 
@@ -704,13 +704,13 @@ else:
                             WHERE customer_id = %s
                         """, (points_to_redeem, earned_points, customer_id))
                     
-                    # Chốt giao dịch
+                    # Commit transaction
                     conn.commit()
                     
                     # Reset UI
                     st.session_state.item_count = 1
                     
-                    st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(final_total):,} VND**")
+                    st.success(f"Invoice #{new_invoice_id} created successfully! Points updated. Grand Total: **{int(final_total):,} VND**")
                     
                 except Exception as e:
                     conn.rollback()
