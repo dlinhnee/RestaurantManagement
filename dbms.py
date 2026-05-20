@@ -730,34 +730,35 @@ else:
     # ==========================================
     # 5. MODULE: ADMIN REPORTS
     # ==========================================
+    
     elif choice == "Admin Reports":
+
         st.header("Admin Dashboard & Reports")
 
+
+
         if st.session_state.user_role != "admin":
-            st.error("Access Denied. You do not have permission to view this page.")
+
+            st.error(
+
+                "Access Denied. You do not have permission to view this page."
+
+            )
+
         else:
+
             t1, t2 = st.tabs(["Daily Revenue & Visits", "Top Selling Dishes"])
 
+
+
             with t1:
+
                 st.subheader("Revenue & Customer Visits")
+
                 rev_query = """
+
                     SELECT DATE(payment_date) AS Date, SUM(total_amount) AS Daily_Revenue, COUNT(invoice_id) AS Daily_Visits
+
                     FROM invoices
-                    GROUP BY DATE(payment_date)
-                    ORDER BY Date DESC
-                """
-                df_rev = pd.read_sql(rev_query, conn)
-                st.dataframe(df_rev, use_container_width=True)
 
-            with t2:
-                st.subheader("Top Selling Dishes")
-                top_query = """
-                    SELECT m.dish_name AS `Dish Name`, SUM(id.quantity) AS `Total Qty Sold`
-                    FROM invoice_details id
-                    JOIN menu_items m ON id.dish_id = m.dish_id
-                    GROUP BY m.dish_id, m.dish_name
-                    ORDER BY `Total Qty Sold` DESC
-                """
-                df_top = pd.read_sql(top_query, conn)
-                st.dataframe(df_top, use_container_width=True)
-
+         
