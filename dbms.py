@@ -727,38 +727,76 @@ else:
                 finally:
                     cursor.close()
 
-    # ==========================================
     # 5. MODULE: ADMIN REPORTS
-    # ==========================================
-    
     elif choice == "Admin Reports":
-
         st.header("Admin Dashboard & Reports")
 
-
-
         if st.session_state.user_role != "admin":
-
             st.error(
-
                 "Access Denied. You do not have permission to view this page."
-
             )
-
         else:
-
             t1, t2 = st.tabs(["Daily Revenue & Visits", "Top Selling Dishes"])
 
-
-
             with t1:
-
                 st.subheader("Revenue & Customer Visits")
-
                 rev_query = """
-
                     SELECT DATE(payment_date) AS Date, SUM(total_amount) AS Daily_Revenue, COUNT(invoice_id) AS Daily_Visits
-
                     FROM invoices
+                    WHERE payment_date IS NOT NULL
+                    GROUP BY DATE(payment_date)
+                    ORDER BY Date
+                """
+                df_rev = pd.read_sql(rev_query, conn)
 
-         
+                if not df_rev.empty:
+                    df_rev["Date"] = pd.to_datetime(df_rev["Date"]).dt.date
+
+                    total_rev = int(df_rev["Daily_Revenue"].sum())
+                    total_visits = int(df_rev["Daily_Visits"].sum())
+
+                    col1, col2 = st.columns(2)
+                    col1.metric("Total Revenue", f"{total_rev:,} VND")
+                    col2.metric("Total Customer Visits", f"{total_visits} Invoices")
+
+                    st.markdown("---")
+                    st.markdown("**Daily Revenue Trend (VND)**")
+                    st.line_chart(df_rev.set_index("Date")["Daily_Revenue"])
+
+                    st.markdown("**Daily Customer Visits**")
+                    st.bar_chart(df_rev.set_index("Date")["Daily_Visits"])
+                else:
+                    st.info("No revenue data available yet.")
+
+            with t2:
+                st.subheader("Top 5 Best-Selling Dishes")
+                st.info(
+                    "Data is fetched dynamically from the Database View: 'View_TopSellingDishes'"
+                )
+
+                df_top = pd.read_sql(
+                    "SELECT * FROM View_TopSellingDishes LIMIT 5", conn
+                )
+
+                if not df_top.empty:
+                    df_top.rename(
+                        columns={
+                            "dish_name": "Dish Name",
+                            "total_sold": "Quantity Sold",
+                        },
+                        inplace=True,
+                    )
+
+                    colA, colB = st.columns([5, 6])
+                    with colA:
+                        st.dataframe(
+                            df_top, use_container_width=True, hide_index=True
+                        )
+                    with colB:
+                        st.bar_chart(df_top.set_index("Dish Name")["Quantity Sold"])
+                else:
+                    st.info("No sales data available yet.")
+
+    if conn:
+        conn.close()
+
