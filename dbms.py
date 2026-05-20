@@ -687,11 +687,11 @@ else:
                     
                     # Start transaction for ACID compliance
                     conn.start_transaction()
-            # 4. CHECKOUT & UPDATE DATABASE
-# 4. CHECKOUT & UPDATE DATABASE
             
+    # 4. CHECKOUT & UPDATE DATABASE
+            # ĐƯA NÚT BẤM RA NGOÀI TRƯỚC
             if st.button("Generate Invoice & Checkout", type="primary"):
-                try: 
+                try: # BẮT ĐẦU KHỐI TRY Ở ĐÂY (Thụt lề vào trong if)
                     cursor = conn.cursor()
                     conn.start_transaction() 
                     
@@ -730,6 +730,7 @@ else:
                 finally:
                     cursor.close()
 
+    # ==========================================
     # 5. MODULE: ADMIN REPORTS
     elif choice == "Admin Reports":
         st.header("Admin Dashboard & Reports")
