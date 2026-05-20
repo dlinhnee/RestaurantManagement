@@ -166,7 +166,7 @@ else:
     conn = get_db_connection()
 
     # ==========================================
-    # MODULE: CHANGE PASSWORD
+    # MODULE 1: CHANGE PASSWORD
     # ==========================================
     if choice == "Change Password":
         st.header("Change Password")
@@ -190,7 +190,7 @@ else:
                         st.error(msg)
 
     # ==========================================
-    # MODULE 1: CUSTOMER MANAGEMENT
+    # MODULE 2: CUSTOMER MANAGEMENT
     # ==========================================
     elif choice == "Customer Management":
         st.header("Customer Management")
@@ -324,7 +324,7 @@ else:
                     st.warning("No customer found with this phone number.")
 
     # ==========================================
-    # 2. MODULE: TABLES & RESERVATIONS
+    #  MODULE 3: TABLES & RESERVATIONS
     # ==========================================
     elif choice == "Tables & Reservations":
         st.header("Table & Reservation Management")
@@ -482,7 +482,7 @@ else:
                     conn.autocommit = True
 
     # ==========================================
-    # 3. MODULE: MENU MANAGEMENT
+    # MODULE 4: MENU MANAGEMENT
     # ==========================================
     elif choice == "Menu Management":
         st.header("🍴Food & Beverage Menu")
@@ -582,8 +582,8 @@ else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
                 )
-# ==========================================
-    # 4. MODULE: BILLING & INVOICES
+    # ==========================================
+    # MODULE 5: BILLING & INVOICES
     # ==========================================
     elif choice == "Billing & Invoices":
         st.header("🧾 Billing & Invoices")
@@ -655,10 +655,10 @@ else:
             st.markdown("---")
             order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
           
-            # --- FIX: CALCULATE ORIGINAL TOTAL ---
+            # --- CALCULATE ORIGINAL TOTAL ---
             original_total = sum(item['price'] * item['quantity'] for item in order_items)
             
-            # --- FIX: REDEEM POINTS LOGIC ---
+            # --- REDEEM POINTS LOGIC ---
             points_to_redeem = 0
             discount_amount = points_to_redeem * 100
             if customer_id and cust_info.get('points', 0) > 0:
@@ -667,7 +667,7 @@ else:
                 # Note: Adjust the 1000 multiplier to match your actual VND-per-point conversion rate
                 discount_amount = points_to_redeem * 100 
 
-        # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
+        #  CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
             final_total = max(final_total, 0) 
             
@@ -732,7 +732,7 @@ else:
                     cursor.close()
 
     # ==========================================
-    # 5. MODULE: ADMIN REPORTS
+    #  MODULE 6: ADMIN REPORTS
     elif choice == "Admin Reports":
         st.header("Admin Dashboard & Reports")
 
