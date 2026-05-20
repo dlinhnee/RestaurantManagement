@@ -1,10 +1,9 @@
 
--- 1. KHỞI TẠO DATABASE
 DROP DATABASE IF EXISTS RestaurantManagement;
 CREATE DATABASE RestaurantManagement;
 USE RestaurantManagement;
 
--- 1. Bảng Nhân viên
+-- Employees table
 CREATE TABLE employees (
     employee_id INT PRIMARY KEY AUTO_INCREMENT,
     full_name VARCHAR(100) NOT NULL,
@@ -14,7 +13,7 @@ CREATE TABLE employees (
     hire_date DATE
 );
 
--- 2. Bảng Khách hàng (Đã gộp thông tin Thẻ thành viên)
+-- Customers table
 CREATE TABLE customers (
     customer_id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
@@ -26,7 +25,7 @@ CREATE TABLE customers (
     join_date DATE DEFAULT (CURRENT_DATE)
 );
 
--- 3. Bảng Bàn ăn
+-- Tables table
 CREATE TABLE tables (
     table_id INT PRIMARY KEY AUTO_INCREMENT,
     table_number INT NOT NULL UNIQUE,
@@ -34,13 +33,13 @@ CREATE TABLE tables (
     capacity INT NOT NULL
 );
 
--- 4. Bảng Danh mục món ăn
+-- Categories table
 CREATE TABLE categories (
     category_id INT PRIMARY KEY AUTO_INCREMENT,
     category_name VARCHAR(100) NOT NULL UNIQUE
 );
 
--- 5. Bảng Món ăn
+-- Menu_items table
 CREATE TABLE menu_items (
     dish_id INT PRIMARY KEY AUTO_INCREMENT,
     category_id INT,
@@ -51,7 +50,7 @@ CREATE TABLE menu_items (
     FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE SET NULL
 );
 
--- 6. Bảng Đặt bàn (Đã sửa customer_id và table_id thành cho phép NULL để hỗ trợ 0..N)
+-- Reservations table
 CREATE TABLE reservations (
     reservation_id INT PRIMARY KEY AUTO_INCREMENT,
     customer_id INT NULL, 
@@ -59,21 +58,21 @@ CREATE TABLE reservations (
     guest_count INT NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL
 );
--- 6b. Bảng TRUNG GIAN: Chi tiết đặt bàn (Giải quyết 1 đặt chỗ - nhiều bàn)
+-- Reservation_detail table
 CREATE TABLE reservation_detail (
     reservation_id INT NOT NULL,
     table_id INT NOT NULL,
-    PRIMARY KEY (reservation_id, table_id), -- Khóa chính tổ hợp
+    PRIMARY KEY (reservation_id, table_id), 
     FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id) ON DELETE CASCADE,
     FOREIGN KEY (table_id) REFERENCES tables(table_id) ON DELETE CASCADE
 );
 
--- 7. Bảng Hóa đơn (Đã sửa các FK thành NULL để hỗ trợ quan hệ 0..N)
+-- Invoice table
 CREATE TABLE invoices (
     invoice_id INT PRIMARY KEY AUTO_INCREMENT,
-    customer_id INT NULL,  -- Khách hàng 1 -> Invoice 0..N
-    employee_id INT NULL,  -- Nhân viên 1 -> Invoice 0..N
-    table_id INT NULL,     -- Bàn 1 -> Invoice 0..N (Ví dụ: bàn mới chưa có khách ngồi)
+    customer_id INT NULL,  
+    employee_id INT NULL,  
+    table_id INT NULL,     
     total_amount DECIMAL(10,2) DEFAULT 0.00,
     payment_date DATETIME,
     order_type VARCHAR(20) NOT NULL,
@@ -85,7 +84,7 @@ CREATE TABLE invoices (
     FOREIGN KEY (table_id) REFERENCES tables(table_id) ON DELETE SET NULL
 );
 
--- 8. Bảng Chi tiết Hóa đơn
+-- Invoice_details table
 CREATE TABLE invoice_details (
     detail_id INT PRIMARY KEY AUTO_INCREMENT,
     invoice_id INT NOT NULL,
@@ -97,7 +96,7 @@ CREATE TABLE invoice_details (
     FOREIGN KEY (dish_id) REFERENCES menu_items(dish_id) ON DELETE CASCADE
 );
 
--- 3. CHÈN DỮ LIỆU MẪU (DML)
+-- Insert sample data
 
 INSERT INTO categories (category_name) VALUES 
 ('Main Course'), ('Dessert'), ('Drink'), ('Appetizer'), 
@@ -174,19 +173,19 @@ INSERT INTO invoices (customer_id, employee_id, table_id, total_amount, payment_
 (10, 1, 10, 50000, '2026-05-12 20:00:00', 'Dine-in', 'Delivered');
 
 INSERT INTO invoice_details (invoice_id, dish_id, quantity, unit_price, line_subtotal) VALUES
-(1, 1, 2, 75000, 150000),      -- 2 x Grilled Chicken Sandwich
-(2, 2, 2, 95000, 190000),      -- 2 x Beef Burger
-(3, 1, 4, 75000, 300000),      -- 4 x Grilled Chicken Sandwich
-(4, 3, 5, 70000, 350000),      -- 5 x Beef Noodle Soup
-(4, 4, 1, 100000, 100000),       -- 1 x Seafood Pad Thai (Tổng HĐ 4 = 360.000)
-(5, 1, 8, 75000, 600000),      -- 8 x Grilled Chicken Sandwich
-(6, 2, 4, 95000, 380000),      -- 4 x Beef Burger
-(7, 7, 5, 45000, 225000),      -- 5 x Tomato Basil Soup
-(8, 1, 6, 75000, 450000),      -- 6 x Grilled Chicken Sandwich
-(9, 8, 10, 50000, 500000),     -- 10 x Fried Dumplings
-(10, 9, 2, 40000, 80000);      -- 2 x Iced Peach Tea (Bổ sung món cho HĐ 10)
+(1, 1, 2, 75000, 150000),      
+(2, 2, 2, 95000, 190000),      
+(3, 1, 4, 75000, 300000),      
+(4, 3, 5, 70000, 350000),      
+(4, 4, 1, 100000, 100000),      
+(5, 1, 8, 75000, 600000),     
+(6, 2, 4, 95000, 380000),     
+(7, 7, 5, 45000, 225000),      
+(8, 1, 6, 75000, 450000),     
+(9, 8, 10, 50000, 500000),    
+(10, 9, 2, 40000, 80000);      
 
--- 4. TRIGGER & PROCEDURE
+-- Trigger and procedure
 USE RestaurantManagement;
 DROP TRIGGER IF EXISTS after_reservation_insert;
 DELIMITER //
@@ -195,7 +194,7 @@ CREATE TRIGGER after_reservation_table_insert
 AFTER INSERT ON reservation_detail
 FOR EACH ROW
 BEGIN
-    -- Cập nhật trạng thái của bàn dựa trên table_id vừa được chèn vào bảng chi tiết
+    -- Update table status
     UPDATE tables 
     SET status = 'Reserved' 
     WHERE table_id = NEW.table_id;
@@ -221,16 +220,15 @@ JOIN invoice_details id ON m.dish_id = id.dish_id
 GROUP BY m.dish_name
 ORDER BY total_sold DESC;
 
--- 5. SECURITY
+-- Security
 CREATE ROLE IF NOT EXISTS 'staff_role';
 GRANT SELECT, INSERT, UPDATE ON RestaurantManagement.* TO 'staff_role';
--- CREATE USER 'linh_staff'@'localhost' IDENTIFIED BY 'Linh123456'; 
--- GRANT 'staff_role' TO 'linh_staff'@'localhost';
 
--- Tối ưu hóa việc tìm kiếm tên món ăn trong thực đơn
+
+-- Optimize menu item name searches
 CREATE INDEX idx_dish_name ON menu_items(dish_name);
 
--- Tối ưu hóa việc tìm kiếm các lịch đặt bàn theo ngày giờ
+-- Optimized search for table reservations by date and time
 CREATE INDEX idx_reservation_time ON reservations(reservation_time);
 
 
