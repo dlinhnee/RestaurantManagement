@@ -173,15 +173,20 @@ else:
     # MODULE: CHANGE PASSWORD
     # ==========================================
     if choice == "Change Password":
-        st.header("🔒 Change Password")
+        st.header("Change Password")
         with st.form("change_password_form"):
             cp_username = st.text_input("Confirm Your Username")
             cp_old = st.text_input("Old Password", type="password")
             cp_new = st.text_input("New Password", type="password")
+            # THÊM Ô NHẬP XÁC NHẬN MẬT KHẨU MỚI
+            cp_confirm = st.text_input("Confirm New Password", type="password")
             
             if st.form_submit_button("Update Password"):
-                if not cp_username or not cp_old or not cp_new:
+                if not cp_username or not cp_old or not cp_new or not cp_confirm:
                     st.warning("All fields are required!")
+                # KIỂM TRA XEM MẬT KHẨU MỚI VÀ XÁC NHẬN CÓ TRÙNG NHAU KHÔNG
+                elif cp_new != cp_confirm:
+                    st.error("New password and confirm password do not match!")
                 else:
                     success, msg = change_password_db(cp_username, cp_old, cp_new)
                     if success:
