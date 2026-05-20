@@ -665,7 +665,7 @@ else:
                 max_points = int(cust_info['points'])
                 points_to_redeem = st.number_input("Points to Redeem", min_value=0, max_value=max_points, step=1)
                 # Note: Adjust the 1000 multiplier to match your actual VND-per-point conversion rate
-                discount_amount = points_to_redeem * 1000 
+                discount_amount = points_to_redeem * 100 
 
         # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
