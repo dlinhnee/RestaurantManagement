@@ -1,4 +1,3 @@
-
 DROP DATABASE IF EXISTS RestaurantManagement;
 CREATE DATABASE RestaurantManagement;
 USE RestaurantManagement;
