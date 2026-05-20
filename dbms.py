@@ -688,8 +688,10 @@ else:
                     # Start transaction for ACID compliance
                     conn.start_transaction()
             # 4. CHECKOUT & UPDATE DATABASE
+# 4. CHECKOUT & UPDATE DATABASE
+            
             if st.button("Generate Invoice & Checkout", type="primary"):
-                try:
+                try: 
                     cursor = conn.cursor()
                     conn.start_transaction() 
                     
@@ -722,7 +724,7 @@ else:
                     st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(final_total):,} VND**")
                     st.rerun()
                     
-                except Exception as e:
+                except Exception as e: # ĐÃ CÓ EXCEPT HỢP LỆ
                     conn.rollback()
                     st.error(f"Error creating invoice: {e}")
                 finally:
