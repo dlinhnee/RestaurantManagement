@@ -62,6 +62,7 @@ CREATE TABLE reservation_detail (
     reservation_id INT NOT NULL,
     table_id INT NOT NULL,
     PRIMARY KEY (reservation_id, table_id), 
+    -- If a reservation is deleted, automatically clean up its table assignments
     FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id) ON DELETE CASCADE,
     FOREIGN KEY (table_id) REFERENCES tables(table_id) ON DELETE CASCADE
 );
@@ -78,6 +79,7 @@ CREATE TABLE invoices (
     shipping_address VARCHAR(255),
     delivery_status VARCHAR(50),
     shipping_fee DECIMAL(10,2) DEFAULT 0.00,
+    -- Using SET NULL for FKs so financial/sales history remains intact even if a customer or employee leaves
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
     FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE SET NULL,
     FOREIGN KEY (table_id) REFERENCES tables(table_id) ON DELETE SET NULL
@@ -193,7 +195,7 @@ CREATE TRIGGER after_reservation_table_insert
 AFTER INSERT ON reservation_detail
 FOR EACH ROW
 BEGIN
-    -- Update table status
+    -- Automatically flip table status to 'Reserved' when assigned to a booking
     UPDATE tables 
     SET status = 'Reserved' 
     WHERE table_id = NEW.table_id;
@@ -206,7 +208,7 @@ RETURNS INT
 DETERMINISTIC
 BEGIN
     DECLARE points INT;
-    SET points = FLOOR(total_amount / 1000); 
+    SET points = FLOOR(total_amount / 1000); -- Every 1,000 VND spent equals 1 loyalty point
     RETURN points;
 END //
 DELIMITER ;
@@ -225,9 +227,11 @@ GRANT SELECT, INSERT, UPDATE ON RestaurantManagement.* TO 'staff_role';
 
 
 -- Optimize menu item name searches
+-- Added B-Tree index on dish_name to speed up front-end search/auto-complete dropdowns
 CREATE INDEX idx_dish_name ON menu_items(dish_name);
 
 -- Optimized search for table reservations by date and time
+-- Added index on reservation_time since filtering bookings by date range is a high-frequency query
 CREATE INDEX idx_reservation_time ON reservations(reservation_time);
 
 
