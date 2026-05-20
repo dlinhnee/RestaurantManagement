@@ -660,29 +660,30 @@ else:
             
             # --- FIX: REDEEM POINTS LOGIC ---
             points_to_redeem = 0
-            discount_amount = 0
+            discount_amount = points_to_redeem * 100
             if customer_id and cust_info.get('points', 0) > 0:
                 max_points = int(cust_info['points'])
                 points_to_redeem = st.number_input("Points to Redeem", min_value=0, max_value=max_points, step=1)
                 # Note: Adjust the 1000 multiplier to match your actual VND-per-point conversion rate
                 discount_amount = points_to_redeem * 1000 
 
-            # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
+        # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
             final_total = original_total - discount_amount
-            final_total = max(final_total, 0) # Prevent negative totals
+            final_total = max(final_total, 0) 
             
             earned_points = 0
             if customer_id:
-                cursor.execute("SELECT CalculateLoyaltyPoints(%s) AS earned", (final_total,))
+                # Truy vấn UDF từ database
+                cursor.execute("SELECT CalculateLoyaltyPoints(%s) AS earned", (float(final_total),))
                 udf_result = cursor.fetchone()
                 
-                if type(udf_result) is dict:
-                    earned_points = int(udf_result.get('earned', 0)) if udf_result.get('earned') else 0
-                else:
-                    earned_points = int(udf_result) if udf_result else 0
-
-            if points_to_redeem > 0:
-                st.write(f"*Discount (Redeemed Points):* - {int(discount_amount):,} VND")
+                if udf_result:
+                    if isinstance(udf_result, dict):
+                        # Nếu cursor cấu hình dictionary=True
+                        earned_points = int(udf_result.get('earned', 0)) if udf_result.get('earned') else 0
+                    elif isinstance(udf_result, (tuple, list)):
+                        # Nếu cursor trả về dạng tuple mặc định (ví dụ: (15,))
+                        earned_points = int(udf_result[0]) if udf_result[0] else 0
             
             st.markdown(f"### *Grand Total:* {int(final_total):,} VND")
             if customer_id:
