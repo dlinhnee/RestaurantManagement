@@ -677,6 +677,7 @@ else:
             # 4. CHECKOUT & UPDATE DATABASE
             if st.button("Generate Invoice & Checkout", type="primary"):
                 try:
+                    conn.commit() 
                     # Start transaction for ACID compliance
                     conn.start_transaction() 
                     
