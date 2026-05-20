@@ -582,8 +582,7 @@ else:
                 st.warning(
                     "Only Admin accounts have permission to edit menu items."
                 )
-
-    # ==========================================
+# ==========================================
     # 4. MODULE: BILLING & INVOICES
     # ==========================================
     elif choice == "Billing & Invoices":
@@ -598,6 +597,7 @@ else:
                 LEFT JOIN customers c ON i.customer_id = c.customer_id
                 ORDER BY i.invoice_id DESC
             """
+            # Make sure pandas is imported as pd
             df_invoices = pd.read_sql(query, conn)
             st.dataframe(df_invoices, use_container_width=True)
 
@@ -622,7 +622,7 @@ else:
             st.markdown("---")
             st.markdown("Order Details")
             
-            # Truy vấn menu 
+            # Query menu 
             cursor.execute("SELECT dish_id, dish_name, price FROM menu_items WHERE is_available = 1")
             menu_items = cursor.fetchall()
             menu_options = {f"{item['dish_name']} - {int(item['price']):,} VND": item for item in menu_items}
@@ -655,22 +655,31 @@ else:
             st.markdown("---")
             order_type = st.selectbox("Order Type", ["Dine-in", "Takeaway", "Delivery"])
           
-          # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
-            final_total = original_total - discount_amount
+            # --- FIX: CALCULATE ORIGINAL TOTAL ---
+            original_total = sum(item['price'] * item['quantity'] for item in order_items)
             
-            # --- GỌI HÀM UDF TỪ DATABASE ĐỂ TÍNH ĐIỂM ---
+            # --- FIX: REDEEM POINTS LOGIC ---
+            points_to_redeem = 0
+            discount_amount = 0
+            if customer_id and cust_info.get('points', 0) > 0:
+                max_points = int(cust_info['points'])
+                points_to_redeem = st.number_input("Points to Redeem", min_value=0, max_value=max_points, step=1)
+                # Note: Adjust the 1000 multiplier to match your actual VND-per-point conversion rate
+                discount_amount = points_to_redeem * 1000 
+
+            # 3. CALCULATE GRAND TOTAL & NEW EARNED POINTS
+            final_total = original_total - discount_amount
+            final_total = max(final_total, 0) # Prevent negative totals
+            
             earned_points = 0
             if customer_id:
-                # Dùng AS earned để dễ dàng lấy kết quả từ CSDL
                 cursor.execute("SELECT CalculateLoyaltyPoints(%s) AS earned", (final_total,))
                 udf_result = cursor.fetchone()
                 
-                # Trích xuất giá trị trả về (xử lý an toàn cho cả dạng dict và tuple)
                 if type(udf_result) is dict:
                     earned_points = int(udf_result.get('earned', 0)) if udf_result.get('earned') else 0
                 else:
                     earned_points = int(udf_result) if udf_result else 0
-            # ---------------------------------------------
 
             if points_to_redeem > 0:
                 st.write(f"*Discount (Redeemed Points):* - {int(discount_amount):,} VND")
@@ -679,15 +688,14 @@ else:
             if customer_id:
                 st.caption(f"(Customer will redeem {points_to_redeem} pts and earn {earned_points} new pts from this invoice)")
 
-            
-    # 4. CHECKOUT & UPDATE DATABASE
-            # ĐƯA NÚT BẤM RA NGOÀI TRƯỚC
+            # 4. CHECKOUT & UPDATE DATABASE
             if st.button("Generate Invoice & Checkout", type="primary"):
-                try: # BẮT ĐẦU KHỐI TRY Ở ĐÂY (Thụt lề vào trong if)
+                try: 
                     cursor = conn.cursor()
                     conn.start_transaction() 
                     
                     # A. Insert into Invoices table
+                    # Make sure from datetime import datetime is at the top of your file
                     cursor.execute("""
                         INSERT INTO invoices (customer_id, total_amount, payment_date, order_type, delivery_status) 
                         VALUES (%s, %s, %s, %s, 'Delivered')
@@ -716,7 +724,7 @@ else:
                     st.success(f"Invoice #{new_invoice_id} created successfully! Grand Total: **{int(final_total):,} VND**")
                     st.rerun()
                     
-                except Exception as e: # ĐÃ CÓ EXCEPT HỢP LỆ
+                except Exception as e: 
                     conn.rollback()
                     st.error(f"Error creating invoice: {e}")
                 finally:
